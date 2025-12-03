@@ -4,8 +4,12 @@ export type UserRole = 'user' | 'admin';
 
 export interface Profile {
   id: string;
-  username: string;
+  username: string | null;
   role: UserRole;
+  student_id: string | null;
+  real_name: string | null;
+  oauth_provider: string | null;
+  oauth_id: string | null;
   created_at: string;
 }
 

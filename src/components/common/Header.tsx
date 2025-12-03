@@ -58,7 +58,12 @@ export default function Header() {
                 <div className="flex items-center gap-3 pl-3 border-l border-border">
                   <div className="flex items-center gap-2">
                     <User className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm font-medium">{profile?.username}</span>
+                    <span className="text-sm font-medium">
+                      {profile?.real_name || profile?.username}
+                      {profile?.student_id && (
+                        <span className="text-muted-foreground ml-1">({profile.student_id})</span>
+                      )}
+                    </span>
                   </div>
                   <Button variant="ghost" size="sm" onClick={handleSignOut} className="gap-2">
                     <LogOut className="w-4 h-4" />

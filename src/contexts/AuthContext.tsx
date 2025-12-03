@@ -3,13 +3,13 @@ import { supabase } from '@/db/supabase';
 import type { User } from '@supabase/supabase-js';
 import type { Profile } from '@/types/types';
 import { getCurrentUser } from '@/db/api';
+import { generateAuthUrl } from '@/config/oauth';
 
 interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   loading: boolean;
-  signIn: (username: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (username: string, password: string) => Promise<{ error: Error | null }>;
+  signInWithOAuth: () => void;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -52,48 +52,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const signIn = async (username: string, password: string) => {
-    try {
-      const email = `${username}@miaoda.com`;
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (error) {
-        return { error };
-      }
-
-      return { error: null };
-    } catch (error) {
-      return { error: error as Error };
-    }
-  };
-
-  const signUp = async (username: string, password: string) => {
-    try {
-      // 验证用户名格式
-      if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-        return { error: new Error('用户名只能包含字母、数字和下划线') };
-      }
-
-      const email = `${username}@miaoda.com`;
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: window.location.origin
-        }
-      });
-
-      if (error) {
-        return { error };
-      }
-
-      return { error: null };
-    } catch (error) {
-      return { error: error as Error };
-    }
+  // OAuth登录
+  const signInWithOAuth = () => {
+    // 跳转到学校OAuth授权页面
+    const authUrl = generateAuthUrl();
+    window.location.href = authUrl;
   };
 
   const signOut = async () => {
@@ -101,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signIn, signUp, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, signInWithOAuth, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

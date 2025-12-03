@@ -5,6 +5,7 @@ import MyRegistrationPage from './pages/MyRegistrationPage';
 import RulesPage from './pages/RulesPage';
 import LoginPage from './pages/LoginPage';
 import AdminPage from './pages/AdminPage';
+import OAuthCallbackPage from './pages/OAuthCallbackPage';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import type { ReactNode } from 'react';
 
@@ -57,6 +58,12 @@ const routes: RouteConfig[] = [
     name: '登录',
     path: '/login',
     element: <LoginPage />,
+    visible: false
+  },
+  {
+    name: 'OAuth回调',
+    path: '/auth/callback',
+    element: <OAuthCallbackPage />,
     visible: false
   },
   {
