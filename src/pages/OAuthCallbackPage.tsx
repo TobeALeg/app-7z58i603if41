@@ -41,12 +41,19 @@ export default function OAuthCallbackPage() {
 
       // 如果有token，说明是从Edge Function返回的
       if (token) {
-        // 解析token获取用户信息
-        const userInfo = JSON.parse(atob(token));
+        // 解析token获取用户信息（注意：需要先decodeURIComponent再atob）
+        const userInfo = JSON.parse(decodeURIComponent(atob(token)));
+        
+        // 检查token是否过期
+        if (userInfo.expires && userInfo.expires < Date.now()) {
+          setStatus('error');
+          setMessage('登录已过期，请重新登录');
+          return;
+        }
         
         // 使用用户信息在Supabase中创建或登录用户
-        const virtualEmail = `${userInfo.oauth_id}@oauth.local`;
-        const virtualPassword = `oauth_${userInfo.oauth_id}_${Date.now()}`;
+        const virtualEmail = `${userInfo.oauth_id}@oauth.wzbc.local`;
+        const virtualPassword = `oauth_${userInfo.oauth_id}_${userInfo.provider}`;
         
         // 尝试登录
         let { error: signInError } = await supabase.auth.signInWithPassword({
@@ -65,7 +72,7 @@ export default function OAuthCallbackPage() {
                 student_id: userInfo.student_id,
                 real_name: userInfo.real_name,
                 username: userInfo.username,
-                provider: 'university_sso'
+                provider: userInfo.provider || 'wzbc_cas'
               }
             }
           });
