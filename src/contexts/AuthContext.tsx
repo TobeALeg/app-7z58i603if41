@@ -3,7 +3,7 @@ import { supabase } from '@/db/supabase';
 import type { User } from '@supabase/supabase-js';
 import type { Profile } from '@/types/types';
 import { getCurrentUser } from '@/db/api';
-import { generateAuthUrl } from '@/config/oauth';
+import { generateAuthUrl, generateLogoutUrl } from '@/config/oauth';
 
 interface AuthContextType {
   user: User | null;
@@ -60,7 +60,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    // 先退出Supabase会话
     await supabase.auth.signOut();
+    
+    // 然后跳转到CAS注销页面，完成单点登出
+    const logoutUrl = generateLogoutUrl();
+    window.location.href = logoutUrl;
   };
 
   return (

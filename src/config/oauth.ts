@@ -11,6 +11,9 @@ export const OAUTH_CONFIG = {
   // 用户信息端点
   userInfoUrl: 'https://cas.wzbc.edu.cn/cas/oauth2.0/profile',
   
+  // CAS注销端点
+  logoutUrl: 'https://cas.wzbc.edu.cn/cas/logout',
+  
   // 客户端ID（学校提供）
   clientId: 'CijBwB5EwTTXouO7',
   
@@ -58,6 +61,13 @@ export function generateAuthUrl(): string {
   });
   
   return `${OAUTH_CONFIG.authorizationUrl}?${params.toString()}`;
+}
+
+// 生成CAS注销URL
+export function generateLogoutUrl(): string {
+  // CAS注销后重定向到首页
+  const serviceUrl = window.location.origin;
+  return `${OAUTH_CONFIG.logoutUrl}?service=${encodeURIComponent(serviceUrl)}`;
 }
 
 // 生成随机state用于防止CSRF攻击
