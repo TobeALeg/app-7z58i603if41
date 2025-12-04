@@ -79,7 +79,7 @@
 
 3. **在学校OAuth系统注册回调URL**
    ```
-   https://your-domain.com/auth/callback
+   https://aigc.wzbc.edu.cn/auth/callback
    ```
 
 ### 可选配置

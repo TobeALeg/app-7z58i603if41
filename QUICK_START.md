@@ -49,7 +49,7 @@ OAUTH_TOKEN_URL=https://sso.your-university.edu.cn/oauth/token
 OAUTH_USERINFO_URL=https://sso.your-university.edu.cn/oauth/userinfo
 OAUTH_CLIENT_ID=your_client_id_here
 OAUTH_CLIENT_SECRET=your_client_secret_here
-OAUTH_REDIRECT_URI=https://your-domain.com/auth/callback
+OAUTH_REDIRECT_URI=https://aigc.wzbc.edu.cn/auth/callback
 ```
 
 ### 步骤3: 在学校OAuth系统注册回调URL
@@ -57,7 +57,7 @@ OAUTH_REDIRECT_URI=https://your-domain.com/auth/callback
 在学校的OAuth管理后台添加回调URL：
 
 ```
-https://your-domain.com/auth/callback
+https://aigc.wzbc.edu.cn/auth/callback
 ```
 
 ### 步骤4: 测试登录
@@ -107,7 +107,7 @@ https://your-domain.com/auth/callback
 
 2. **回调URL配置**
    - 开发环境: `http://localhost:5173/auth/callback`
-   - 生产环境: `https://your-domain.com/auth/callback`
+   - 生产环境: `https://aigc.wzbc.edu.cn/auth/callback`
    - 两个环境都需要在学校系统注册
 
 3. **HTTPS要求**

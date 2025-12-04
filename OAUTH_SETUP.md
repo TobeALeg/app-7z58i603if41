@@ -36,7 +36,7 @@ export const OAUTH_CONFIG = {
   clientId: 'YOUR_CLIENT_ID',
   clientSecret: 'YOUR_CLIENT_SECRET',
   
-  // 回调URL会自动生成，格式为: https://your-domain.com/auth/callback
+  // 回调URL会自动生成，格式为: https://aigc.wzbc.edu.cn/auth/callback
   redirectUri: `${window.location.origin}/auth/callback`,
   
   // 根据学校系统要求配置
@@ -73,7 +73,7 @@ OAUTH_CLIENT_ID=your_client_id
 OAUTH_CLIENT_SECRET=your_client_secret
 
 # OAuth回调URL
-OAUTH_REDIRECT_URI=https://your-domain.com/auth/callback
+OAUTH_REDIRECT_URI=https://aigc.wzbc.edu.cn/auth/callback
 ```
 
 ### 4. 部署Edge Function
@@ -90,7 +90,7 @@ OAUTH_REDIRECT_URI=https://your-domain.com/auth/callback
 在学校的OAuth管理后台中，注册以下回调URL：
 
 ```
-https://your-domain.com/auth/callback
+https://aigc.wzbc.edu.cn/auth/callback
 ```
 
 ## 🔄 OAuth登录流程

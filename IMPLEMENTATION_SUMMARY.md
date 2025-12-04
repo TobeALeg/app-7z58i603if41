@@ -252,7 +252,7 @@ Edge Function处理授权码
 
 **需要注册**:
 - 开发环境: `http://localhost:5173/auth/callback`
-- 生产环境: `https://your-domain.com/auth/callback`
+- 生产环境: `https://aigc.wzbc.edu.cn/auth/callback`
 
 ### 步骤2: 配置Supabase环境变量
 
@@ -264,7 +264,7 @@ OAUTH_TOKEN_URL=https://cas.wzbc.edu.cn/cas/oauth2.0/accessToken
 OAUTH_USERINFO_URL=https://cas.wzbc.edu.cn/cas/oauth2.0/profile
 OAUTH_CLIENT_ID=CijBwB5EwTTXouO7
 OAUTH_CLIENT_SECRET=O8dOsXE7p7yMbh18KEP2Z6
-OAUTH_REDIRECT_URI=https://your-domain.com/auth/callback
+OAUTH_REDIRECT_URI=https://aigc.wzbc.edu.cn/auth/callback
 ```
 
 ### 步骤3: 部署Edge Function

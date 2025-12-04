@@ -47,7 +47,7 @@
 在学校OAuth管理后台：
 
 - [ ] 注册开发环境回调URL: `http://localhost:5173/auth/callback`
-- [ ] 注册生产环境回调URL: `https://your-domain.com/auth/callback`
+- [ ] 注册生产环境回调URL: `https://aigc.wzbc.edu.cn/auth/callback`
 
 ### 步骤4: 部署Edge Function
 

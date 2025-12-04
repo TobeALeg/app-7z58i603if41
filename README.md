@@ -2,9 +2,12 @@
 
 智能体比赛报名平台 - 基于React + TypeScript + Supabase开发的在线报名系统
 
+**🌐 生产地址**: https://aigc.wzbc.edu.cn
+
 ### ✨ 主要特性
 
 - 🔐 **温州商学院统一身份认证** - 集成CAS OAuth 2.0 SSO，无需注册
+- 🔒 **HTTPS安全访问** - 全站HTTPS加密，保障数据安全
 - 📝 **在线报名** - 便捷的报名表单，支持团队参赛
 - 📤 **作品提交** - 支持文件上传，自动图片压缩
 - 📊 **报名管理** - 实时查看报名状态和审核结果
@@ -15,9 +18,11 @@
 
 本系统已完成温州商学院CAS认证系统的接入配置，用户使用学号密码登录，无需单独注册。
 
-**快速开始**: 查看 [WZBC_CAS_SETUP.md](./WZBC_CAS_SETUP.md)
+**快速参考**: 查看 [QUICK_REFERENCE.md](./QUICK_REFERENCE.md)
 
-**配置指南**: 查看 [OAUTH_SETUP.md](./OAUTH_SETUP.md)
+**CAS配置**: 查看 [WZBC_CAS_SETUP.md](./WZBC_CAS_SETUP.md)
+
+**HTTPS部署**: 查看 [HTTPS_DEPLOYMENT.md](./HTTPS_DEPLOYMENT.md)
 
 ## 目录结构
 
