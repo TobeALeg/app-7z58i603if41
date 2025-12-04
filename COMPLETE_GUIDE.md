@@ -22,7 +22,7 @@
 | 项目 | 信息 |
 |------|------|
 | **项目名称** | 智能体比赛报名平台 |
-| **生产地址** | https://aigc.wzbc.edu.cn |
+| **生产地址** | https://aigctmp.wzbc.edu.cn |
 | **技术栈** | React + TypeScript + Supabase + Vite |
 | **认证方式** | 温州商学院CAS OAuth 2.0 SSO |
 | **部署方式** | Apache + HTTPS (443端口) |
@@ -141,7 +141,7 @@ OAUTH_TOKEN_URL=https://cas.wzbc.edu.cn/cas/oauth2.0/accessToken
 OAUTH_USERINFO_URL=https://cas.wzbc.edu.cn/cas/oauth2.0/profile
 OAUTH_CLIENT_ID=CijBwB5EwTTXouO7
 OAUTH_CLIENT_SECRET=O8dOsXE7p7yMbh18KEP2Z6
-OAUTH_REDIRECT_URI=https://aigc.wzbc.edu.cn/auth/callback
+OAUTH_REDIRECT_URI=https://aigctmp.wzbc.edu.cn/auth/callback
 ```
 
 #### 2. 部署Edge Function
@@ -158,7 +158,7 @@ supabase functions deploy oauth-callback
 联系学校信息中心，注册以下回调URL：
 
 ```
-https://aigc.wzbc.edu.cn/auth/callback
+https://aigctmp.wzbc.edu.cn/auth/callback
 ```
 
 #### 2. OAuth配置信息
@@ -369,7 +369,7 @@ scp -r dist/* user@server:/var/www/html/
 
 ```apache
 <VirtualHost *:443>
-    ServerName aigc.wzbc.edu.cn
+    ServerName aigctmp.wzbc.edu.cn
     DocumentRoot /var/www/html
 
     # SSL配置
@@ -406,8 +406,8 @@ scp -r dist/* user@server:/var/www/html/
 
 # HTTP重定向到HTTPS
 <VirtualHost *:80>
-    ServerName aigc.wzbc.edu.cn
-    Redirect permanent / https://aigc.wzbc.edu.cn/
+    ServerName aigctmp.wzbc.edu.cn
+    Redirect permanent / https://aigctmp.wzbc.edu.cn/
 </VirtualHost>
 ```
 
@@ -446,16 +446,16 @@ sudo find /var/www/html -type f -exec chmod 644 {} \;
 
 ```bash
 # 1. 检查HTTPS访问
-curl -I https://aigc.wzbc.edu.cn
+curl -I https://aigctmp.wzbc.edu.cn
 
 # 2. 检查HTTP重定向
-curl -I http://aigc.wzbc.edu.cn
+curl -I http://aigctmp.wzbc.edu.cn
 
 # 3. 检查SPA路由
-curl -I https://aigc.wzbc.edu.cn/register
+curl -I https://aigctmp.wzbc.edu.cn/register
 
 # 4. 检查静态资源
-curl -I https://aigc.wzbc.edu.cn/assets/index.js
+curl -I https://aigctmp.wzbc.edu.cn/assets/index.js
 ```
 
 ---
@@ -477,7 +477,7 @@ curl -I https://aigc.wzbc.edu.cn/assets/index.js
 npm run dev → Vite服务器 → localhost:5173
 
 生产环境:
-npm run build → dist/静态文件 → Apache:443 → aigc.wzbc.edu.cn
+npm run build → dist/静态文件 → Apache:443 → aigctmp.wzbc.edu.cn
 ```
 
 ### Q2: OAuth回调URL配置错误怎么办？
@@ -494,7 +494,7 @@ npm run build → dist/静态文件 → Apache:443 → aigc.wzbc.edu.cn
 http://localhost:5173/auth/callback
 
 # 生产环境
-https://aigc.wzbc.edu.cn/auth/callback
+https://aigctmp.wzbc.edu.cn/auth/callback
 ```
 
 ### Q3: 登录后跳转到空白页面？
@@ -694,7 +694,7 @@ ALTER TABLE your_table_name DISABLE ROW LEVEL SECURITY;
 ```javascript
 // 在浏览器控制台查看OAuth配置
 console.log(window.location.origin);
-// 应该输出: https://aigc.wzbc.edu.cn
+// 应该输出: https://aigctmp.wzbc.edu.cn
 ```
 
 #### 问题: Token交换失败
@@ -922,16 +922,16 @@ sudo a2enmod rewrite          # 启用模块
 
 # 调试
 tail -f /var/log/apache2/error.log  # 查看日志
-curl -I https://aigc.wzbc.edu.cn    # 测试访问
+curl -I https://aigctmp.wzbc.edu.cn    # 测试访问
 ```
 
 ### 重要URL
 
 | 用途 | URL |
 |------|-----|
-| **生产网站** | https://aigc.wzbc.edu.cn |
+| **生产网站** | https://aigctmp.wzbc.edu.cn |
 | **开发环境** | http://localhost:5173 |
-| **OAuth回调** | https://aigc.wzbc.edu.cn/auth/callback |
+| **OAuth回调** | https://aigctmp.wzbc.edu.cn/auth/callback |
 | **CAS登录** | https://cas.wzbc.edu.cn/cas/oauth2.0/authorize |
 | **CAS注销** | https://cas.wzbc.edu.cn/cas/logout |
 | **Supabase** | https://supabase.com/dashboard |

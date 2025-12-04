@@ -40,7 +40,7 @@
 https://cas.wzbc.edu.cn/cas/oauth2.0/authorize?
   response_type=code&
   client_id=CijBwB5EwTTXouO7&
-  redirect_uri=https://aigc.wzbc.edu.cn/auth/callback&
+  redirect_uri=https://aigctmp.wzbc.edu.cn/auth/callback&
   state=RANDOM_STATE
 ```
 
@@ -53,7 +53,7 @@ https://cas.wzbc.edu.cn/cas/oauth2.0/authorize?
 认证成功后，CAS系统重定向回应用：
 
 ```
-https://aigc.wzbc.edu.cn/auth/callback?
+https://aigctmp.wzbc.edu.cn/auth/callback?
   code=OC-2-lO-RjC5flQ3fqsw2LV0bAYEvy6rVfyXV&
   state=RANDOM_STATE
 ```
@@ -67,7 +67,7 @@ GET https://cas.wzbc.edu.cn/cas/oauth2.0/accessToken?
   grant_type=authorization_code&
   client_id=CijBwB5EwTTXouO7&
   client_secret=O8dOsXE7p7yMbh18KEP2Z6&
-  redirect_uri=https://aigc.wzbc.edu.cn/auth/callback&
+  redirect_uri=https://aigctmp.wzbc.edu.cn/auth/callback&
   code=OC-2-lO-RjC5flQ3fqsw2LV0bAYEvy6rVfyXV
 ```
 
@@ -140,7 +140,7 @@ http://localhost:5173/auth/callback
 
 **生产环境**:
 ```
-https://aigc.wzbc.edu.cn/auth/callback
+https://aigctmp.wzbc.edu.cn/auth/callback
 ```
 
 ### 步骤2: 配置Supabase环境变量
@@ -152,7 +152,7 @@ OAUTH_TOKEN_URL=https://cas.wzbc.edu.cn/cas/oauth2.0/accessToken
 OAUTH_USERINFO_URL=https://cas.wzbc.edu.cn/cas/oauth2.0/profile
 OAUTH_CLIENT_ID=CijBwB5EwTTXouO7
 OAUTH_CLIENT_SECRET=O8dOsXE7p7yMbh18KEP2Z6
-OAUTH_REDIRECT_URI=https://aigc.wzbc.edu.cn/auth/callback
+OAUTH_REDIRECT_URI=https://aigctmp.wzbc.edu.cn/auth/callback
 ```
 
 ### 步骤3: 部署Edge Function

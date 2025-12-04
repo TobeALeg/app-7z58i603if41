@@ -4,7 +4,7 @@
 
 | 项目 | 信息 |
 |------|------|
-| **生产域名** | https://aigc.wzbc.edu.cn |
+| **生产域名** | https://aigctmp.wzbc.edu.cn |
 | **协议** | HTTPS (SSL/TLS) |
 | **认证系统** | 温州商学院CAS OAuth 2.0 |
 | **部署日期** | 2025-12-03 |
@@ -15,8 +15,8 @@
 
 | 用途 | URL |
 |------|-----|
-| **生产网站** | https://aigc.wzbc.edu.cn |
-| **OAuth回调** | https://aigc.wzbc.edu.cn/auth/callback |
+| **生产网站** | https://aigctmp.wzbc.edu.cn |
+| **OAuth回调** | https://aigctmp.wzbc.edu.cn/auth/callback |
 | **CAS授权** | https://cas.wzbc.edu.cn/cas/oauth2.0/authorize |
 | **CAS Token** | https://cas.wzbc.edu.cn/cas/oauth2.0/accessToken |
 | **CAS用户信息** | https://cas.wzbc.edu.cn/cas/oauth2.0/profile |
@@ -30,7 +30,7 @@ OAUTH_TOKEN_URL=https://cas.wzbc.edu.cn/cas/oauth2.0/accessToken
 OAUTH_USERINFO_URL=https://cas.wzbc.edu.cn/cas/oauth2.0/profile
 OAUTH_CLIENT_ID=CijBwB5EwTTXouO7
 OAUTH_CLIENT_SECRET=O8dOsXE7p7yMbh18KEP2Z6
-OAUTH_REDIRECT_URI=https://aigc.wzbc.edu.cn/auth/callback
+OAUTH_REDIRECT_URI=https://aigctmp.wzbc.edu.cn/auth/callback
 ```
 
 ---
@@ -162,7 +162,7 @@ sudo tail -f /var/log/apache2/error.log
 
 1. **在CAS系统注册回调URL**
    - 联系学校信息中心
-   - 提供: https://aigc.wzbc.edu.cn/auth/callback
+   - 提供: https://aigctmp.wzbc.edu.cn/auth/callback
 
 2. **配置Supabase环境变量**
    - 登录Supabase Dashboard
@@ -179,7 +179,7 @@ sudo tail -f /var/log/apache2/error.log
    ```
 
 5. **测试完整流程**
-   - 访问 https://aigc.wzbc.edu.cn
+   - 访问 https://aigctmp.wzbc.edu.cn
    - 测试OAuth登录
    - 验证所有功能
 

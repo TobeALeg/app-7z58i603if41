@@ -1,8 +1,8 @@
-# 🔒 HTTPS部署指南 - aigc.wzbc.edu.cn
+# 🔒 HTTPS部署指南 - aigctmp.wzbc.edu.cn
 
 ## 📋 生产环境信息
 
-**生产域名**: https://aigc.wzbc.edu.cn  
+**生产域名**: https://aigctmp.wzbc.edu.cn  
 **协议**: HTTPS (SSL/TLS)  
 **证书类型**: Apache证书  
 **部署日期**: 2025-12-03
@@ -17,7 +17,7 @@
 
 ```
 开发环境: http://localhost:5173/auth/callback
-生产环境: https://aigc.wzbc.edu.cn/auth/callback
+生产环境: https://aigctmp.wzbc.edu.cn/auth/callback
 ```
 
 ### 2. 环境变量配置
@@ -25,12 +25,12 @@
 `.env.example` 已更新为生产域名：
 
 ```bash
-OAUTH_REDIRECT_URI=https://aigc.wzbc.edu.cn/auth/callback
+OAUTH_REDIRECT_URI=https://aigctmp.wzbc.edu.cn/auth/callback
 ```
 
 ### 3. 文档更新
 
-所有文档中的示例URL已更新为 `https://aigc.wzbc.edu.cn`
+所有文档中的示例URL已更新为 `https://aigctmp.wzbc.edu.cn`
 
 ---
 
@@ -43,7 +43,7 @@ OAUTH_REDIRECT_URI=https://aigc.wzbc.edu.cn/auth/callback
 联系学校信息中心，注册：
 
 ```
-https://aigc.wzbc.edu.cn/auth/callback
+https://aigctmp.wzbc.edu.cn/auth/callback
 ```
 
 **验证方法**:
@@ -66,7 +66,7 @@ OAUTH_TOKEN_URL=https://cas.wzbc.edu.cn/cas/oauth2.0/accessToken
 OAUTH_USERINFO_URL=https://cas.wzbc.edu.cn/cas/oauth2.0/profile
 OAUTH_CLIENT_ID=CijBwB5EwTTXouO7
 OAUTH_CLIENT_SECRET=O8dOsXE7p7yMbh18KEP2Z6
-OAUTH_REDIRECT_URI=https://aigc.wzbc.edu.cn/auth/callback
+OAUTH_REDIRECT_URI=https://aigctmp.wzbc.edu.cn/auth/callback
 ```
 
 **注意事项**:
@@ -94,7 +94,7 @@ ca_bundle.crt        # CA证书链（可选）
 
 ```apache
 <VirtualHost *:443>
-    ServerName aigc.wzbc.edu.cn
+    ServerName aigctmp.wzbc.edu.cn
     DocumentRoot /var/www/html
     
     # SSL配置
@@ -128,8 +128,8 @@ ca_bundle.crt        # CA证书链（可选）
 
 # HTTP到HTTPS重定向
 <VirtualHost *:80>
-    ServerName aigc.wzbc.edu.cn
-    Redirect permanent / https://aigc.wzbc.edu.cn/
+    ServerName aigctmp.wzbc.edu.cn
+    Redirect permanent / https://aigctmp.wzbc.edu.cn/
 </VirtualHost>
 ```
 
@@ -223,14 +223,14 @@ sudo find /var/www/html -type f -exec chmod 644 {} \;
 访问以下网站检查SSL证书：
 
 ```
-https://www.ssllabs.com/ssltest/analyze.html?d=aigc.wzbc.edu.cn
+https://www.ssllabs.com/ssltest/analyze.html?d=aigctmp.wzbc.edu.cn
 ```
 
 **期望结果**: A级或以上评分
 
 #### 6.2 功能测试
 
-- [ ] 访问 https://aigc.wzbc.edu.cn 正常加载
+- [ ] 访问 https://aigctmp.wzbc.edu.cn 正常加载
 - [ ] 浏览器地址栏显示锁图标
 - [ ] 点击登录按钮正常跳转到CAS系统
 - [ ] CAS登录后正常回调
@@ -239,7 +239,7 @@ https://www.ssllabs.com/ssltest/analyze.html?d=aigc.wzbc.edu.cn
 
 #### 6.3 HTTP重定向测试
 
-- [ ] 访问 http://aigc.wzbc.edu.cn 自动重定向到HTTPS
+- [ ] 访问 http://aigctmp.wzbc.edu.cn 自动重定向到HTTPS
 - [ ] 重定向后功能正常
 
 ---
@@ -394,7 +394,7 @@ https://www.ssllabs.com/ssltest/analyze.html?d=aigc.wzbc.edu.cn
 
 完成所有步骤后，您的智能体比赛报名平台已成功部署到：
 
-**https://aigc.wzbc.edu.cn**
+**https://aigctmp.wzbc.edu.cn**
 
 用户现在可以通过HTTPS安全访问，使用温州商学院CAS统一身份认证登录！
 
@@ -402,5 +402,5 @@ https://www.ssllabs.com/ssltest/analyze.html?d=aigc.wzbc.edu.cn
 
 **文档版本**: 1.0  
 **更新日期**: 2025-12-03  
-**生产域名**: https://aigc.wzbc.edu.cn  
+**生产域名**: https://aigctmp.wzbc.edu.cn  
 **协议**: HTTPS (SSL/TLS)

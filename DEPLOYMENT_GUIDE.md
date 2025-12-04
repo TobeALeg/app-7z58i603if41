@@ -1,4 +1,4 @@
-# 🚀 部署指南 - aigc.wzbc.edu.cn
+# 🚀 部署指南 - aigctmp.wzbc.edu.cn
 
 ## 📍 快速导航
 
@@ -13,7 +13,7 @@
 
 ## 🎯 部署概览
 
-**生产域名**: https://aigc.wzbc.edu.cn  
+**生产域名**: https://aigctmp.wzbc.edu.cn  
 **协议**: HTTPS (SSL/TLS)  
 **认证系统**: 温州商学院CAS OAuth 2.0
 
@@ -25,7 +25,7 @@
 
 联系学校信息中心，注册：
 ```
-https://aigc.wzbc.edu.cn/auth/callback
+https://aigctmp.wzbc.edu.cn/auth/callback
 ```
 
 ### 第2步: 配置Supabase环境变量
@@ -36,7 +36,7 @@ OAUTH_TOKEN_URL=https://cas.wzbc.edu.cn/cas/oauth2.0/accessToken
 OAUTH_USERINFO_URL=https://cas.wzbc.edu.cn/cas/oauth2.0/profile
 OAUTH_CLIENT_ID=CijBwB5EwTTXouO7
 OAUTH_CLIENT_SECRET=O8dOsXE7p7yMbh18KEP2Z6
-OAUTH_REDIRECT_URI=https://aigc.wzbc.edu.cn/auth/callback
+OAUTH_REDIRECT_URI=https://aigctmp.wzbc.edu.cn/auth/callback
 ```
 
 ### 第3步: 配置Apache SSL
@@ -58,7 +58,7 @@ sudo chown -R www-data:www-data /var/www/html
 
 ### 第5步: 测试验证
 
-- 访问 https://aigc.wzbc.edu.cn
+- 访问 https://aigctmp.wzbc.edu.cn
 - 测试OAuth登录
 - 验证所有功能
 
