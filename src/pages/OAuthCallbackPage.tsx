@@ -91,12 +91,72 @@ export default function OAuthCallbackPage() {
         }, 1500);
         
       } else if (code) {
-        // 如果有授权码，调用Edge Function处理
-        // 注意：实际应该重定向到Edge Function，而不是在前端处理
+        // 如果有授权码，调用Supabase Edge Function处理
         setMessage('正在验证身份...');
         
-        // 重定向到Edge Function
-        window.location.href = `/api/oauth-callback?code=${code}&state=${state || ''}`;
+        try {
+          // 调用Supabase Edge Function
+          const { data, error } = await supabase.functions.invoke('oauth-callback', {
+            body: JSON.stringify({ code, state: state || '' }),
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          if (error) {
+            console.error('Edge Function调用失败:', error);
+            throw new Error(error.message || 'OAuth认证失败');
+          }
+          
+          // Edge Function应该返回用户信息
+          if (data && data.userInfo) {
+            const userInfo = data.userInfo;
+            
+            // 使用用户信息在Supabase中创建或登录用户
+            const virtualEmail = `${userInfo.oauth_id}@oauth.wzbc.local`;
+            const virtualPassword = `oauth_${userInfo.oauth_id}_${userInfo.provider}`;
+            
+            // 尝试登录
+            let { error: signInError } = await supabase.auth.signInWithPassword({
+              email: virtualEmail,
+              password: virtualPassword
+            });
+            
+            // 如果登录失败，说明是首次登录，需要注册
+            if (signInError) {
+              const { error: signUpError } = await supabase.auth.signUp({
+                email: virtualEmail,
+                password: virtualPassword,
+                options: {
+                  data: {
+                    oauth_id: userInfo.oauth_id,
+                    student_id: userInfo.student_id,
+                    real_name: userInfo.real_name,
+                    username: userInfo.username,
+                    provider: userInfo.provider || 'wzbc_cas'
+                  }
+                }
+              });
+              
+              if (signUpError) {
+                throw signUpError;
+              }
+            }
+            
+            setStatus('success');
+            setMessage('登录成功！正在跳转...');
+            
+            // 延迟跳转，让用户看到成功消息
+            setTimeout(() => {
+              navigate('/');
+            }, 1500);
+          } else {
+            throw new Error('未能获取用户信息');
+          }
+        } catch (err) {
+          console.error('OAuth处理失败:', err);
+          throw err;
+        }
         
       } else {
         setStatus('error');
