@@ -96,16 +96,31 @@ export default function OAuthCallbackPage() {
         
         try {
           // 调用Supabase Edge Function
+          console.log('开始调用Edge Function，参数:', { code: code?.substring(0, 10) + '...', state });
+          
           const { data, error } = await supabase.functions.invoke('oauth-callback', {
-            body: JSON.stringify({ code, state: state || '' }),
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            body: { code, state: state || '' },
           });
+          
+          console.log('Edge Function响应:', { data, error });
           
           if (error) {
             console.error('Edge Function调用失败:', error);
-            throw new Error(error.message || 'OAuth认证失败');
+            // 尝试获取更详细的错误信息
+            let errorMsg = 'OAuth认证失败';
+            if (error.message) {
+              errorMsg = error.message;
+            }
+            if (error.context) {
+              try {
+                const contextText = await error.context.text();
+                console.error('错误详情:', contextText);
+                errorMsg = `${errorMsg}: ${contextText}`;
+              } catch (e) {
+                console.error('无法读取错误详情:', e);
+              }
+            }
+            throw new Error(errorMsg);
           }
           
           // Edge Function应该返回用户信息
@@ -166,7 +181,23 @@ export default function OAuthCallbackPage() {
     } catch (error) {
       console.error('OAuth callback error:', error);
       setStatus('error');
-      setMessage(error instanceof Error ? error.message : '登录失败，请重试');
+      
+      // 提供更友好的错误提示
+      let errorMessage = '登录失败，请重试';
+      if (error instanceof Error) {
+        const msg = error.message.toLowerCase();
+        if (msg.includes('edge function')) {
+          errorMessage = '认证服务暂时不可用，请稍后重试或联系管理员';
+        } else if (msg.includes('network') || msg.includes('fetch')) {
+          errorMessage = '网络连接失败，请检查网络后重试';
+        } else if (msg.includes('timeout')) {
+          errorMessage = '请求超时，请重试';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      setMessage(errorMessage);
     }
   };
 
