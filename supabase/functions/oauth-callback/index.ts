@@ -69,25 +69,75 @@ Deno.serve(async (req: Request) => {
     console.log('Redirect URI:', OAUTH_CONFIG.redirectUri);
 
     // 1. 使用授权码换取access_token
-    // CAS OAuth 2.0 标准：POST请求，参数在请求体中
-    const tokenParams = new URLSearchParams({
+    // 尝试方式1：使用HTTP Basic Authentication（OAuth 2.0推荐方式）
+    const tokenParams1 = new URLSearchParams({
       grant_type: 'authorization_code',
       code: code,
       redirect_uri: OAUTH_CONFIG.redirectUri,
-      client_id: OAUTH_CONFIG.clientId,
-      client_secret: OAUTH_CONFIG.clientSecret,
     });
 
-    console.log('请求参数:', tokenParams.toString());
+    // 创建Basic Auth凭证
+    const basicAuth = btoa(`${OAUTH_CONFIG.clientId}:${OAUTH_CONFIG.clientSecret}`);
+    
+    console.log('尝试方式1: Basic Auth');
+    console.log('请求参数:', tokenParams1.toString());
 
-    const tokenResponse = await fetch(OAUTH_CONFIG.tokenUrl, {
+    let tokenResponse = await fetch(OAUTH_CONFIG.tokenUrl, {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Basic ${basicAuth}`,
       },
-      body: tokenParams.toString(),
+      body: tokenParams1.toString(),
     });
+
+    // 如果Basic Auth失败，尝试方式2：参数在请求体中
+    if (!tokenResponse.ok) {
+      console.log('Basic Auth失败，尝试方式2: 参数在请求体');
+      
+      const tokenParams2 = new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code,
+        redirect_uri: OAUTH_CONFIG.redirectUri,
+        client_id: OAUTH_CONFIG.clientId,
+        client_secret: OAUTH_CONFIG.clientSecret,
+      });
+
+      console.log('请求参数:', tokenParams2.toString());
+
+      tokenResponse = await fetch(OAUTH_CONFIG.tokenUrl, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: tokenParams2.toString(),
+      });
+    }
+
+    // 如果POST失败，尝试方式3：GET请求，参数在URL中（某些CAS服务器的要求）
+    if (!tokenResponse.ok) {
+      console.log('POST请求失败，尝试方式3: GET请求');
+      
+      const tokenParams3 = new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code,
+        redirect_uri: OAUTH_CONFIG.redirectUri,
+        client_id: OAUTH_CONFIG.clientId,
+        client_secret: OAUTH_CONFIG.clientSecret,
+      });
+
+      const tokenUrl = `${OAUTH_CONFIG.tokenUrl}?${tokenParams3.toString()}`;
+      console.log('请求URL:', tokenUrl);
+
+      tokenResponse = await fetch(tokenUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+    }
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();

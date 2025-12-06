@@ -64,7 +64,7 @@ const tokenResponse = await fetch(tokenUrl, {
 
 ---
 
-### 第三次尝试（正确）✅
+### 第三次尝试（失败）❌
 
 **文件**: `supabase/functions/oauth-callback/index.ts`
 
@@ -124,6 +124,98 @@ const tokenResponse = await fetch(OAUTH_CONFIG.tokenUrl, {
 3. ✅ 保持POST方法
 4. ✅ 保持Content-Type为`application/x-www-form-urlencoded`
 5. ✅ 添加了请求参数的日志记录
+
+**结果**: 仍然返回500错误 - `error=invalid_request`，CAS返回400
+
+**问题**: 参数在请求体中，但CAS服务器可能需要不同的认证方式
+
+---
+
+### 第四次尝试（智能重试）✅
+
+**文件**: `supabase/functions/oauth-callback/index.ts`
+
+**修改位置**: 第66-140行
+
+**策略**: 实现三种OAuth请求方式的自动重试机制
+
+**修改内容**:
+```typescript
+// 尝试方式1：使用HTTP Basic Authentication（OAuth 2.0推荐方式）
+const tokenParams1 = new URLSearchParams({
+  grant_type: 'authorization_code',
+  code: code,
+  redirect_uri: OAUTH_CONFIG.redirectUri,
+});
+
+const basicAuth = btoa(`${OAUTH_CONFIG.clientId}:${OAUTH_CONFIG.clientSecret}`);
+
+let tokenResponse = await fetch(OAUTH_CONFIG.tokenUrl, {
+  method: 'POST',
+  headers: {
+    'Accept': 'application/json',
+    'Content-Type': 'application/x-www-form-urlencoded',
+    'Authorization': `Basic ${basicAuth}`,
+  },
+  body: tokenParams1.toString(),
+});
+
+// 如果Basic Auth失败，尝试方式2：参数在请求体中
+if (!tokenResponse.ok) {
+  const tokenParams2 = new URLSearchParams({
+    grant_type: 'authorization_code',
+    code: code,
+    redirect_uri: OAUTH_CONFIG.redirectUri,
+    client_id: OAUTH_CONFIG.clientId,
+    client_secret: OAUTH_CONFIG.clientSecret,
+  });
+
+  tokenResponse = await fetch(OAUTH_CONFIG.tokenUrl, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: tokenParams2.toString(),
+  });
+}
+
+// 如果POST失败，尝试方式3：GET请求，参数在URL中
+if (!tokenResponse.ok) {
+  const tokenParams3 = new URLSearchParams({
+    grant_type: 'authorization_code',
+    code: code,
+    redirect_uri: OAUTH_CONFIG.redirectUri,
+    client_id: OAUTH_CONFIG.clientId,
+    client_secret: OAUTH_CONFIG.clientSecret,
+  });
+
+  const tokenUrl = `${OAUTH_CONFIG.tokenUrl}?${tokenParams3.toString()}`;
+  
+  tokenResponse = await fetch(tokenUrl, {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/json',
+    },
+  });
+}
+```
+
+**关键特性**:
+1. ✅ **方式1**: HTTP Basic Authentication（标准OAuth 2.0）
+   - 客户端凭证通过Authorization header传递
+   - 参数只包含grant_type, code, redirect_uri
+   
+2. ✅ **方式2**: POST + 参数在请求体（常见实现）
+   - 所有参数（包括client_id和client_secret）在请求体中
+   
+3. ✅ **方式3**: GET + 参数在URL（CAS特殊实现）
+   - 所有参数作为URL查询参数
+   - 适配某些旧版CAS服务器
+
+4. ✅ **智能重试**: 自动尝试三种方式，找到正确的实现
+
+5. ✅ **详细日志**: 记录每次尝试的方法和参数
 
 ---
 
