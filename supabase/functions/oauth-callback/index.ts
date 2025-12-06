@@ -69,7 +69,7 @@ Deno.serve(async (req: Request) => {
     console.log('Redirect URI:', OAUTH_CONFIG.redirectUri);
 
     // 1. 使用授权码换取access_token
-    // CAS OAuth 2.0 通常使用POST请求，参数在URL中
+    // CAS OAuth 2.0 标准：POST请求，参数在请求体中
     const tokenParams = new URLSearchParams({
       grant_type: 'authorization_code',
       code: code,
@@ -78,15 +78,15 @@ Deno.serve(async (req: Request) => {
       client_secret: OAUTH_CONFIG.clientSecret,
     });
 
-    const tokenUrl = `${OAUTH_CONFIG.tokenUrl}?${tokenParams.toString()}`;
-    console.log('请求Token URL:', tokenUrl);
+    console.log('请求参数:', tokenParams.toString());
 
-    const tokenResponse = await fetch(tokenUrl, {
+    const tokenResponse = await fetch(OAUTH_CONFIG.tokenUrl, {
       method: 'POST',
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/x-www-form-urlencoded',
       },
+      body: tokenParams.toString(),
     });
 
     if (!tokenResponse.ok) {
