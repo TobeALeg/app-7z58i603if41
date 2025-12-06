@@ -64,8 +64,12 @@ Deno.serve(async (req: Request) => {
     }
 
     console.log('收到授权码，开始换取access_token...');
+    console.log('Token URL:', OAUTH_CONFIG.tokenUrl);
+    console.log('Client ID:', OAUTH_CONFIG.clientId);
+    console.log('Redirect URI:', OAUTH_CONFIG.redirectUri);
 
     // 1. 使用授权码换取access_token
+    // CAS OAuth 2.0 通常使用POST请求，参数在URL中
     const tokenParams = new URLSearchParams({
       grant_type: 'authorization_code',
       code: code,
@@ -74,18 +78,33 @@ Deno.serve(async (req: Request) => {
       client_secret: OAUTH_CONFIG.clientSecret,
     });
 
-    const tokenResponse = await fetch(`${OAUTH_CONFIG.tokenUrl}?${tokenParams.toString()}`, {
-      method: 'GET',
+    const tokenUrl = `${OAUTH_CONFIG.tokenUrl}?${tokenParams.toString()}`;
+    console.log('请求Token URL:', tokenUrl);
+
+    const tokenResponse = await fetch(tokenUrl, {
+      method: 'POST',
       headers: {
         'Accept': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
       },
     });
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
-      console.error('Token exchange failed:', tokenResponse.status, errorText);
+      console.error('Token exchange failed:', {
+        status: tokenResponse.status,
+        statusText: tokenResponse.statusText,
+        error: errorText,
+        tokenUrl: OAUTH_CONFIG.tokenUrl,
+        clientId: OAUTH_CONFIG.clientId,
+        redirectUri: OAUTH_CONFIG.redirectUri,
+      });
       return new Response(
-        JSON.stringify({ error: '获取access_token失败', details: errorText }),
+        JSON.stringify({ 
+          error: '获取access_token失败', 
+          details: errorText,
+          status: tokenResponse.status 
+        }),
         { 
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -94,12 +113,17 @@ Deno.serve(async (req: Request) => {
     }
 
     const tokenData = await tokenResponse.json();
+    console.log('Token响应:', tokenData);
+    
     const accessToken = tokenData.access_token;
 
     if (!accessToken) {
       console.error('Token response missing access_token:', tokenData);
       return new Response(
-        JSON.stringify({ error: 'access_token不存在' }),
+        JSON.stringify({ 
+          error: 'access_token不存在',
+          tokenData: tokenData 
+        }),
         { 
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
