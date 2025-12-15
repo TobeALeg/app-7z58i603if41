@@ -15,9 +15,9 @@ export default function Footer() {
           <div>
             <h3 className="text-lg font-semibold text-foreground mb-4">联系我们</h3>
             <div className="text-muted-foreground text-sm space-y-2">
-              <p>📧 邮箱: competition@ai-contest.com</p>
-              <p>📱 电话: 400-123-4567</p>
-              <p>🏢 地址: 北京市海淀区中关村大街1号</p>
+              <p>📧 邮箱: 20249211@wzbc.edu.cn</p>
+              <p>📱 电话: 0577-86596298</p>
+              <p>🏢 地址: 浙江省温州市瓯海区东方南路38号</p>
             </div>
           </div>
 
@@ -25,8 +25,8 @@ export default function Footer() {
             <h3 className="text-lg font-semibold text-foreground mb-4">重要时间</h3>
             <div className="text-muted-foreground text-sm space-y-2">
               <p>报名截止: 2025年12月31日</p>
-              <p>作品提交: 2026年1月15日</p>
-              <p>结果公布: 2026年2月1日</p>
+              <p>作品提交: 2026年3月1日</p>
+              <p>结果公布: 2026年5月</p>
             </div>
           </div>
         </div>

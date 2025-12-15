@@ -1,32 +1,49 @@
-/*
-# 更新数据库结构以支持OAuth 2.0 SSO
-
-## 1. 修改 profiles 表
-
-添加字段：
-- `student_id` (text, 唯一) - 学号
-- `real_name` (text) - 真实姓名
-- `oauth_provider` (text) - OAuth提供商标识
-- `oauth_id` (text, 唯一) - OAuth用户ID
-
-## 2. 修改触发器
-
-- 更新 `handle_new_user()` 函数以支持OAuth用户自动创建
-- OAuth用户首次登录时自动创建profile记录
-
-## 3. 说明
-
-- 保留原有的username字段用于显示
-- student_id用于存储学号
-- real_name用于存储真实姓名
-- oauth_id用于唯一标识OAuth用户
-*/
-
--- 添加新字段到 profiles 表
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS student_id text UNIQUE;
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS real_name text;
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS oauth_provider text;
-ALTER TABLE profiles ADD COLUMN IF NOT EXISTS oauth_id text UNIQUE;
+-- 添加新字段到 profiles 表（如果不存在）
+DO $$ 
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'profiles' AND column_name = 'student_id'
+  ) THEN
+    ALTER TABLE profiles ADD COLUMN student_id text UNIQUE;
+  END IF;
+  
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'profiles' AND column_name = 'real_name'
+  ) THEN
+    ALTER TABLE profiles ADD COLUMN real_name text;
+  END IF;
+  
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'profiles' AND column_name = 'oauth_provider'
+  ) THEN
+    ALTER TABLE profiles ADD COLUMN oauth_provider text;
+  END IF;
+  
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'profiles' AND column_name = 'oauth_id'
+  ) THEN
+    ALTER TABLE profiles ADD COLUMN oauth_id text UNIQUE;
+  END IF;
+  
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'profiles' AND column_name = 'identity_type'
+  ) THEN
+    ALTER TABLE profiles ADD COLUMN identity_type text;
+  END IF;
+  
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'profiles' AND column_name = 'organization'
+  ) THEN
+    ALTER TABLE profiles ADD COLUMN organization text;
+  END IF;
+END
+$$;
 
 -- 修改username字段，允许为空（OAuth用户可能没有username）
 ALTER TABLE profiles ALTER COLUMN username DROP NOT NULL;
@@ -63,7 +80,9 @@ BEGIN
       student_id,
       real_name,
       oauth_provider,
-      oauth_id
+      oauth_id,
+      identity_type,
+      organization
     )
     VALUES (
       NEW.id,
@@ -72,8 +91,17 @@ BEGIN
       user_metadata->>'student_id',
       user_metadata->>'real_name',
       user_metadata->>'provider',
-      user_metadata->>'oauth_id'
-    );
+      user_metadata->>'oauth_id',
+      user_metadata->>'identity_type',
+      user_metadata->>'organization'
+    )
+    ON CONFLICT (id) DO UPDATE SET
+      student_id = COALESCE(user_metadata->>'student_id', profiles.student_id),
+      real_name = COALESCE(user_metadata->>'real_name', profiles.real_name),
+      oauth_provider = COALESCE(user_metadata->>'provider', profiles.oauth_provider),
+      oauth_id = COALESCE(user_metadata->>'oauth_id', profiles.oauth_id),
+      identity_type = COALESCE(user_metadata->>'identity_type', profiles.identity_type),
+      organization = COALESCE(user_metadata->>'organization', profiles.organization);
   ELSE
     -- 非OAuth用户（保留原有逻辑）
     INSERT INTO profiles (id, username, role)
@@ -81,7 +109,8 @@ BEGIN
       NEW.id,
       new_username,
       CASE WHEN user_count = 0 THEN 'admin'::user_role ELSE 'user'::user_role END
-    );
+    )
+    ON CONFLICT (id) DO NOTHING;
   END IF;
   
   RETURN NEW;

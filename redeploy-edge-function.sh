@@ -24,7 +24,7 @@ if ! supabase projects list &> /dev/null; then
 fi
 
 # 检查项目关联
-if [ ! -f ".supabase/config.toml" ]; then
+if [ ! -f "supabase/config.toml" ]; then
     echo "✗ 项目未关联"
     echo "  关联命令: supabase link --project-ref <项目ID>"
     exit 1

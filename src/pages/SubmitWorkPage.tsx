@@ -14,12 +14,16 @@ import { Upload, Loader2, FileText, AlertCircle, CheckCircle } from 'lucide-reac
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { RegistrationWithWorks } from '@/types/types';
 
+// 设置200MB的文件大小限制（以字节为单位）
+const MAX_FILE_SIZE = 200 * 1024 * 1024;
+
 export default function SubmitWorkPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [registrations, setRegistrations] = useState<RegistrationWithWorks[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [compressionInfo, setCompressionInfo] = useState<string>('');
@@ -52,10 +56,38 @@ export default function SubmitWorkPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!validateImageFile(file)) {
+    // 检查文件大小
+    if (file.size > MAX_FILE_SIZE) {
+      toast({
+        title: '文件过大',
+        description: `文件大小不能超过200MB，当前文件大小为${formatFileSize(file.size)}`,
+        variant: 'destructive'
+      });
+      e.target.value = '';
+      return;
+    }
+
+    // 检查是否为图片或压缩文件
+    let isImage = file.type.startsWith('image/');
+    let isCompressed = file.type === 'application/zip' || 
+                       file.type === 'application/x-zip-compressed' || // Windows系统常用ZIP MIME类型
+                       file.type === 'application/x-rar-compressed' || 
+                       file.type === 'application/x-7z-compressed' || 
+                       file.type === 'application/x-tar';
+
+    // 对于某些浏览器，可能无法正确识别文件类型，我们通过文件扩展名再检查一遍
+    if (!isImage && !isCompressed) {
+      const fileName = file.name.toLowerCase();
+      if (fileName.endsWith('.zip') || fileName.endsWith('.rar') || 
+          fileName.endsWith('.7z') || fileName.endsWith('.tar')) {
+        isCompressed = true;
+      }
+    }
+
+    if (!isImage && !isCompressed) {
       toast({
         title: '文件格式错误',
-        description: '仅支持 JPEG、PNG、GIF、WEBP 格式的图片',
+        description: '仅支持 JPEG、PNG、GIF、WEBP 格式的图片和 ZIP、RAR、7Z、TAR 格式的压缩包',
         variant: 'destructive'
       });
       e.target.value = '';
@@ -75,6 +107,12 @@ export default function SubmitWorkPage() {
         });
       } else {
         setCompressionInfo('');
+        if (isCompressed) {
+          toast({
+            title: '文件已选择',
+            description: `${file.name} (${formatFileSize(file.size)})`
+          });
+        }
       }
     } catch (error) {
       toast({
@@ -140,8 +178,22 @@ export default function SubmitWorkPage() {
 
     if (selectedFile) {
       setUploading(true);
-      filePath = await uploadWorkFile(selectedFile);
+      setUploadProgress(0); // 初始化进度为0
+      
+      // 添加上传前的调试信息
+      console.log("开始上传文件:", {
+        name: selectedFile.name,
+        size: selectedFile.size,
+        type: selectedFile.type
+      });
+      
+      // 使用支持分片上传和进度回调的新函数
+      filePath = await uploadWorkFile(selectedFile, (progress) => {
+        setUploadProgress(progress);
+      });
+      
       setUploading(false);
+      setUploadProgress(null); // 清除进度
 
       if (!filePath) {
         toast({
@@ -296,13 +348,13 @@ export default function SubmitWorkPage() {
                 <Input
                   id="file"
                   type="file"
-                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  accept="image/jpeg,image/png,image/gif,image/webp,application/zip,application/x-zip-compressed,application/x-rar-compressed,application/x-7z-compressed,application/x-tar"
                   onChange={handleFileChange}
                   disabled={loading}
                   className="cursor-pointer"
                 />
                 <p className="text-sm text-muted-foreground">
-                  支持 JPEG、PNG、GIF、WEBP 格式，文件大小限制 1MB
+                  支持 JPEG、PNG、GIF、WEBP 图片格式和 ZIP、RAR、7Z、TAR 压缩包格式，文件大小限制 200MB
                 </p>
                 {selectedFile && (
                   <Alert>
@@ -311,6 +363,19 @@ export default function SubmitWorkPage() {
                     <AlertDescription>
                       {selectedFile.name} ({formatFileSize(selectedFile.size)})
                       {compressionInfo && <div className="mt-1 text-xs">{compressionInfo}</div>}
+                      {uploadProgress !== null && (
+                        <div className="mt-2">
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-blue-600 h-2 rounded-full" 
+                              style={{ width: `${uploadProgress}%` }}
+                            ></div>
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            上传进度: {uploadProgress.toFixed(1)}%
+                          </div>
+                        </div>
+                      )}
                     </AlertDescription>
                   </Alert>
                 )}

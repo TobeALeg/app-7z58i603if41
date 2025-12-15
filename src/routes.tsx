@@ -6,6 +6,9 @@ import RulesPage from './pages/RulesPage';
 import LoginPage from './pages/LoginPage';
 import AdminPage from './pages/AdminPage';
 import OAuthCallbackPage from './pages/OAuthCallbackPage';
+import ResultsPage from './pages/ResultsPage';
+import TestCSVPage from './pages/TestCSVPage';
+import ProfilePage from './pages/ProfilePage';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import type { ReactNode } from 'react';
 
@@ -23,13 +26,23 @@ const routes: RouteConfig[] = [
     element: <HomePage />
   },
   {
-    name: '比赛报名',
+    name: '大赛报名',
     path: '/register',
     element: (
       <ProtectedRoute>
         <RegisterPage />
       </ProtectedRoute>
     )
+  },
+  {
+    name: '大赛结果',
+    path: '/results',
+    element: <ResultsPage />
+  },
+  {
+    name: '大赛规则',
+    path: '/rules',
+    element: <RulesPage />
   },
   {
     name: '作品提交',
@@ -50,9 +63,20 @@ const routes: RouteConfig[] = [
     )
   },
   {
-    name: '比赛规则',
-    path: '/rules',
-    element: <RulesPage />
+    name: '个人信息',
+    path: '/profile',
+    element: (
+      <ProtectedRoute>
+        <ProfilePage />
+      </ProtectedRoute>
+    ),
+    visible: false
+  },
+  {
+    name: 'CSV测试',
+    path: '/test-csv',
+    element: <TestCSVPage />,
+    visible: false
   },
   {
     name: '登录',

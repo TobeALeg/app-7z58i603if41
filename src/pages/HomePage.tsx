@@ -2,39 +2,69 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
-import { Calendar, Trophy, Users, FileText, CheckCircle, Clock, Sparkles, Award, Target } from 'lucide-react';
+import { Calendar, Trophy, Users, FileText, CheckCircle, Clock, Sparkles, Award, Target, Download, User, FileTextIcon, Upload, Medal } from 'lucide-react';
 import Autoplay from 'embla-carousel-autoplay';
-import { useRef } from 'react';
+import { useRef, useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { getRegistrationsByUserId } from '@/db/api';
 
 export default function HomePage() {
   const plugin = useRef(
     Autoplay({ delay: 5000, stopOnInteraction: true })
   );
+  
+  const [attachments, setAttachments] = useState<{name: string, url: string}[]>([]);
+  const { user, profile } = useAuth();
+  const [userRegistration, setUserRegistration] = useState<any>(null);
+  const [loadingRegistration, setLoadingRegistration] = useState(false);
+
+  useEffect(() => {
+    // 从localStorage加载附件列表
+    const savedAttachments = localStorage.getItem('competition-attachments');
+    if (savedAttachments) {
+      setAttachments(JSON.parse(savedAttachments));
+    }
+  }, []);
+
+  useEffect(() => {
+    const fetchUserRegistration = async () => {
+      if (user) {
+        setLoadingRegistration(true);
+        const registrations = await getRegistrationsByUserId(user.id);
+        if (registrations.length > 0) {
+          setUserRegistration(registrations[0]); // 假设每个用户只有一个报名
+        }
+        setLoadingRegistration(false);
+      }
+    };
+
+    fetchUserRegistration();
+  }, [user]);
 
   const carouselSlides = [
     {
-      image: 'https://miaoda-site-img.cdn.bcebos.com/images/e1f12d9b-6976-4367-8b6d-a1a0b552c158.jpg',
-      title: '智能体比赛报名平台',
+      image: '/images/downloaded-image.png',
+      title: 'AI智能体创新应用大赛',
       subtitle: '展示你的创新能力，与顶尖选手同台竞技',
       cta: '立即报名',
       ctaLink: '/register'
     },
     {
-      image: 'https://miaoda-site-img.cdn.bcebos.com/images/6a46fbe3-f13e-46c9-bb3e-d5a951470c3f.jpg',
+      image: '/images/downloaded-image1.png',
       title: '创新科技 · 智能未来',
       subtitle: '推动人工智能技术的发展与应用',
       cta: '查看规则',
       ctaLink: '/rules'
     },
     {
-      image: 'https://miaoda-site-img.cdn.bcebos.com/images/00cb162a-d669-4142-bd66-dc0ebace94df.jpg',
+      image: '/images/downloaded-image2.png',
       title: '团队协作 · 共创辉煌',
       subtitle: '支持个人和团队参赛，展现协作能力',
       cta: '了解更多',
       ctaLink: '/rules'
     },
     {
-      image: 'https://miaoda-site-img.cdn.bcebos.com/images/272e707a-f30f-4579-9886-fe52707d86af.jpg',
+      image: 'images/downloaded-image3.png',
       title: '智能时代 · 无限可能',
       subtitle: '探索人工智能的无限可能性',
       cta: '开始参赛',
@@ -119,7 +149,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen">
       {/* 大屏轮播图 Hero Section */}
-      <section className="relative">
+      <section className="">
         <Carousel
           plugins={[plugin.current]}
           className="w-full"
@@ -129,19 +159,19 @@ export default function HomePage() {
           <CarouselContent>
             {carouselSlides.map((slide, index) => (
               <CarouselItem key={index}>
-                <div className="relative h-[500px] xl:h-[600px]">
+                <div className="relative h-screen max-h-[1080px]">
                   <div 
                     className="absolute inset-0 bg-cover bg-center"
                     style={{ backgroundImage: `url(${slide.image})` }}
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent" />
                   </div>
-                  <div className="relative h-full max-w-7xl mx-auto px-4 xl:px-8 flex items-center">
+                  <div className="relative h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center">
                     <div className="max-w-2xl text-white">
-                      <h1 className="text-4xl xl:text-6xl font-bold mb-6 animate-in fade-in slide-in-from-left duration-700">
+                      <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 animate-in fade-in slide-in-from-left duration-700">
                         {slide.title}
                       </h1>
-                      <p className="text-lg xl:text-2xl mb-8 opacity-90 animate-in fade-in slide-in-from-left duration-700 delay-150">
+                      <p className="text-lg md:text-xl lg:text-2xl mb-8 opacity-90 animate-in fade-in slide-in-from-left duration-700 delay-150">
                         {slide.subtitle}
                       </p>
                       <Link to={slide.ctaLink}>
@@ -156,19 +186,19 @@ export default function HomePage() {
               </CarouselItem>
             ))}
           </CarouselContent>
-          <CarouselPrevious className="left-4 xl:left-8" />
-          <CarouselNext className="right-4 xl:right-8" />
+          <CarouselPrevious className="left-4 md:left-8" />
+          <CarouselNext className="right-4 md:right-8" />
         </Carousel>
       </section>
 
       {/* 比赛亮点 */}
       <section className="py-16 bg-gradient-to-b from-background to-muted">
-        <div className="max-w-7xl mx-auto px-4 xl:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-3xl xl:text-4xl font-bold mb-4 gradient-text">比赛亮点</h2>
-            <p className="text-muted-foreground text-lg">为什么选择我们的比赛平台</p>
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 gradient-text">比赛亮点</h2>
+            <p className="text-muted-foreground text-lg">聚焦人工智能，探索智能教育新形态</p>
           </div>
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {highlights.map((highlight, index) => (
               <Card key={index} className="text-center shadow-elegant hover:shadow-glow transition-smooth border-2">
                 <CardHeader>
@@ -184,11 +214,126 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* 赛程进度 */}
+      {user && (
+        <section className="py-16 bg-background">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 gradient-text">我的赛程进度</h2>
+            <div className="max-w-4xl mx-auto">
+              <Card className="shadow-elegant">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <User className="w-5 h-5" />
+                    {loadingRegistration ? (
+                      <div className="h-6 w-32 bg-gray-200 rounded animate-pulse"></div>
+                    ) : userRegistration ? (
+                      <span>{userRegistration.project_name}</span>
+                    ) : (
+                      <span>暂未报名</span>
+                    )}
+                  </CardTitle>
+                  <CardDescription>
+                    跟踪您的比赛进度和下一步操作
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {loadingRegistration ? (
+                    <div className="space-y-4">
+                      <div className="h-4 w-full bg-gray-200 rounded animate-pulse"></div>
+                      <div className="h-4 w-full bg-gray-200 rounded animate-pulse"></div>
+                      <div className="h-4 w-full bg-gray-200 rounded animate-pulse"></div>
+                    </div>
+                  ) : userRegistration ? (
+                    <div className="space-y-6">
+                      {/* 报名状态 */}
+                      <div className="flex items-center gap-4">
+                        <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${userRegistration.status === 'approved' ? 'bg-green-100 text-green-600' : userRegistration.status === 'rejected' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                          <FileTextIcon className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-medium">报名提交</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {userRegistration.status === 'approved' ? '已通过审核' : 
+                             userRegistration.status === 'rejected' ? '未通过审核' : '等待审核'}
+                          </p>
+                        </div>
+                        <div className={`px-2 py-1 rounded text-xs ${userRegistration.status === 'approved' ? 'bg-green-100 text-green-800' : userRegistration.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
+                          {userRegistration.status === 'approved' ? '已完成' : 
+                           userRegistration.status === 'rejected' ? '已拒绝' : '进行中'}
+                        </div>
+                      </div>
+                      
+                      {/* 作品提交 */}
+                      <div className="flex items-center gap-4">
+                        <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${userRegistration.status === 'approved' && userRegistration.works && userRegistration.works.length > 0 ? 'bg-green-100 text-green-600' : userRegistration.status === 'approved' ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-100 text-gray-400'}`}>
+                          <Upload className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-medium">作品提交</h3>
+                          <p className="text-sm text-muted-foreground">
+                            {userRegistration.status === 'approved' && userRegistration.works && userRegistration.works.length > 0 
+                              ? `已提交 ${userRegistration.works.length} 个作品` 
+                              : userRegistration.status === 'approved' 
+                                ? '等待提交作品' 
+                                : '需先通过报名审核'}
+                          </p>
+                        </div>
+                        <div className={`px-2 py-1 rounded text-xs ${userRegistration.status === 'approved' && userRegistration.works && userRegistration.works.length > 0 ? 'bg-green-100 text-green-800' : userRegistration.status === 'approved' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'}`}>
+                          {userRegistration.status === 'approved' && userRegistration.works && userRegistration.works.length > 0 
+                            ? '已完成' 
+                            : userRegistration.status === 'approved' 
+                              ? '待完成' 
+                              : '未开始'}
+                        </div>
+                      </div>
+                      
+                      {/* 结果公布 */}
+                      <div className="flex items-center gap-4">
+                        <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${userRegistration.status === 'approved' ? 'bg-gray-100 text-gray-400' : 'bg-gray-100 text-gray-400'}`}>
+                          <Medal className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-medium">结果公布</h3>
+                          <p className="text-sm text-muted-foreground">
+                            比赛评审完成后公布结果
+                          </p>
+                        </div>
+                        <div className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-800">
+                          未开始
+                        </div>
+                      </div>
+                      
+                      <div className="pt-4">
+                        <Link to="/my-registration">
+                          <Button variant="outline" size="sm">
+                            查看详情
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                      <p className="text-muted-foreground mb-4">您尚未报名参加比赛</p>
+                      <Link to="/register">
+                        <Button>
+                          立即报名
+                        </Button>
+                      </Link>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* 平台特色 */}
       <section className="py-16 bg-background">
-        <div className="max-w-7xl mx-auto px-4 xl:px-8">
-          <h2 className="text-3xl xl:text-4xl font-bold text-center mb-12 gradient-text">平台特色</h2>
-          <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 gradient-text">平台功能</h2>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {features.map((feature, index) => (
               <Card key={index} className="shadow-elegant hover:shadow-glow transition-smooth">
                 <CardHeader>
@@ -204,55 +349,55 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* 附件下载区域 */}
       <section className="py-16 bg-muted">
-        <div className="max-w-7xl mx-auto px-4 xl:px-8">
-          <h2 className="text-3xl font-bold text-center mb-12 gradient-text">比赛时间轴</h2>
-          <div className="max-w-4xl mx-auto">
-            {timeline.map((item, index) => (
-              <div key={index} className="flex gap-6 mb-8 last:mb-0">
-                <div className="flex flex-col items-center">
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                    item.status === 'completed' ? 'bg-secondary text-secondary-foreground' :
-                    item.status === 'active' ? 'bg-primary text-primary-foreground' :
-                    'bg-muted-foreground/20 text-muted-foreground'
-                  }`}>
-                    {item.status === 'completed' ? <CheckCircle className="w-6 h-6" /> :
-                     item.status === 'active' ? <Clock className="w-6 h-6" /> :
-                     <Calendar className="w-6 h-6" />}
-                  </div>
-                  {index < timeline.length - 1 && (
-                    <div className="w-0.5 h-full min-h-[60px] bg-border mt-2" />
-                  )}
-                </div>
-                <Card className="flex-1 shadow-elegant">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 gradient-text">比赛资料下载</h2>
+            <p className="text-muted-foreground text-lg">下载最新的比赛章程和相关资料</p>
+          </div>
+          
+          {attachments.length === 0 ? (
+            <Card className="max-w-2xl mx-auto">
+              <CardContent className="py-12 text-center">
+                <FileText className="w-16 h-16 mx-auto mb-6 text-muted-foreground opacity-50" />
+                <h3 className="text-xl font-semibold mb-2">暂无附件</h3>
+                <p className="text-muted-foreground">管理员尚未上传比赛相关资料</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {attachments.map((attachment, index) => (
+                <Card key={index} className="hover:shadow-glow transition-smooth">
                   <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg">{item.title}</CardTitle>
-                      <span className={`text-sm px-3 py-1 rounded-full ${
-                        item.status === 'completed' ? 'bg-secondary/10 text-secondary' :
-                        item.status === 'active' ? 'bg-primary/10 text-primary' :
-                        'bg-muted text-muted-foreground'
-                      }`}>
-                        {item.date}
-                      </span>
+                    <div className="flex items-center gap-3">
+                      <FileText className="w-8 h-8 text-primary" />
+                      <CardTitle className="text-lg line-clamp-2">{attachment.name}</CardTitle>
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <CardDescription>{item.description}</CardDescription>
+                    <a 
+                      href={attachment.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="w-full"
+                    >
+                      <Button className="w-full gap-2">
+                        <Download className="w-4 h-4" />
+                        点击下载
+                      </Button>
+                    </a>
                   </CardContent>
                 </Card>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
       <section className="py-16 bg-background">
-        <div className="max-w-7xl mx-auto px-4 xl:px-8 text-center">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl font-bold mb-6 gradient-text">准备好了吗？</h2>
-          <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-            加入我们，展示你的创新能力，与全国顶尖选手同台竞技
-          </p>
           <Link to="/register">
             <Button size="lg" className="gap-2 shadow-elegant">
               <FileText className="w-5 h-5" />

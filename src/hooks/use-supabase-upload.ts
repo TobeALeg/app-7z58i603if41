@@ -128,15 +128,38 @@ const useSupabaseUpload = (options: UseSupabaseUploadOptions) => {
           ]
         : files
 
+    // 添加调试日志
+    console.log('准备上传文件列表:', filesToUpload.map(f => ({
+      name: f.name,
+      size: f.size,
+      type: f.type
+    })));
+
     const responses = await Promise.all(
       filesToUpload.map(async (file) => {
+        // 添加每个文件上传前的日志
+        console.log('正在上传文件:', {
+          name: file.name,
+          size: file.size,
+          type: file.type
+        });
+        
         const { error } = await supabase.storage
           .from(bucketName)
           .upload(!!path ? `${path}/${file.name}` : file.name, file, {
             cacheControl: cacheControl.toString(),
             upsert,
           })
+          
         if (error) {
+          // 添加详细的错误日志
+          console.error('文件上传失败:', {
+            fileName: file.name,
+            error: error.message,
+            statusCode: error.statusCode,
+            details: error.details
+          });
+          
           return { name: file.name, message: error.message }
         } else {
           return { name: file.name, message: undefined }

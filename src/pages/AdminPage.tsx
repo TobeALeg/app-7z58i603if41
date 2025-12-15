@@ -1,34 +1,148 @@
-import { useState, useEffect } from 'react';
-import { getAllRegistrations, updateRegistrationStatus, getAllProfiles, updateUserRole } from '@/db/api';
+import { useState, useEffect, useRef } from 'react';
+import { 
+  getAllRegistrations, 
+  updateRegistrationStatus, 
+  getAllProfiles, 
+  updateUserRole,
+  getAllCompetitionGroups,
+  getAllCompetitionResults,
+  createCompetitionResult,
+  updateCompetitionResult,
+  publishCompetitionResult,
+  unpublishCompetitionResult,
+  deleteCompetitionResult,
+  createCompetitionGroup,
+  updateCompetitionGroup,
+  deleteCompetitionGroup,
+  uploadWorkFile
+} from '@/db/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Shield, Users, FileText, CheckCircle, XCircle, Clock } from 'lucide-react';
-import type { RegistrationWithWorks, Profile } from '@/types/types';
+import { 
+  Shield, 
+  Users, 
+  FileText, 
+  CheckCircle, 
+  XCircle, 
+  Clock, 
+  Trophy,
+  Plus,
+  Edit,
+  Trash2,
+  Eye,
+  EyeOff,
+  Upload,
+  Download
+} from 'lucide-react';
+import ResultForm from '@/components/results/ResultForm';
+import GroupForm from '@/components/results/GroupForm';
+import BatchImportResults from '@/components/results/BatchImportResults';
+import type { RegistrationWithWorks, Profile, CompetitionGroup, CompetitionResultWithDetails, CompetitionResult } from '@/types/types';
 
 export default function AdminPage() {
   const { toast } = useToast();
   const [registrations, setRegistrations] = useState<RegistrationWithWorks[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [groups, setGroups] = useState<CompetitionGroup[]>([]);
+  const [results, setResults] = useState<CompetitionResultWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<{name: string, url: string}[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // 表单相关状态
+  const [resultFormOpen, setResultFormOpen] = useState(false);
+  const [editingResult, setEditingResult] = useState<CompetitionResultWithDetails | null>(null);
+  const [groupFormOpen, setGroupFormOpen] = useState(false);
+  const [editingGroup, setEditingGroup] = useState<CompetitionGroup | null>(null);
 
   useEffect(() => {
     loadData();
+    loadAttachments();
   }, []);
 
   const loadData = async () => {
     setLoading(true);
-    const [regsData, profilesData] = await Promise.all([
+    const [regsData, profilesData, groupsData, resultsData] = await Promise.all([
       getAllRegistrations(),
-      getAllProfiles()
+      getAllProfiles(),
+      getAllCompetitionGroups(),
+      getAllCompetitionResults()
     ]);
     setRegistrations(regsData);
     setProfiles(profilesData);
+    setGroups(groupsData);
+    setResults(resultsData);
     setLoading(false);
+  };
+
+  // 加载已上传的附件
+  const loadAttachments = () => {
+    // 这里可以从localStorage或其他地方加载已保存的附件列表
+    const savedAttachments = localStorage.getItem('competition-attachments');
+    if (savedAttachments) {
+      setAttachments(JSON.parse(savedAttachments));
+    }
+  };
+
+  // 处理文件上传
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const url = await uploadWorkFile(file);
+      if (url) {
+        const newAttachment = {
+          name: file.name,
+          url: url
+        };
+        
+        const updatedAttachments = [...attachments, newAttachment];
+        setAttachments(updatedAttachments);
+        localStorage.setItem('competition-attachments', JSON.stringify(updatedAttachments));
+        
+        toast({
+          title: '上传成功',
+          description: `文件 "${file.name}" 已成功上传`
+        });
+      } else {
+        toast({
+          title: '上传失败',
+          description: '文件上传失败，请稍后重试',
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      toast({
+        title: '上传出错',
+        description: '文件上传过程中出现错误',
+        variant: 'destructive'
+      });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  // 删除附件
+  const handleDeleteAttachment = (index: number) => {
+    const updatedAttachments = attachments.filter((_, i) => i !== index);
+    setAttachments(updatedAttachments);
+    localStorage.setItem('competition-attachments', JSON.stringify(updatedAttachments));
+    
+    toast({
+      title: '删除成功',
+      description: '附件已从列表中移除'
+    });
   };
 
   const handleUpdateStatus = async (id: string, status: 'approved' | 'rejected') => {
@@ -69,6 +183,283 @@ export default function AdminPage() {
         variant: 'destructive'
       });
     }
+  };
+
+  const handleCreateResult = async (data: Omit<CompetitionResult, 'id' | 'created_at' | 'updated_at' | 'published' | 'published_at'>) => {
+    const success = await createCompetitionResult(data);
+    
+    if (success) {
+      toast({
+        title: '添加成功',
+        description: '比赛结果已添加'
+      });
+      loadData();
+    } else {
+      toast({
+        title: '添加失败',
+        description: '比赛结果添加失败，请稍后重试',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleUpdateResult = async (id: string, data: Partial<CompetitionResult>) => {
+    const success = await updateCompetitionResult(id, data);
+    
+    if (success) {
+      toast({
+        title: '更新成功',
+        description: '比赛结果已更新'
+      });
+      loadData();
+    } else {
+      toast({
+        title: '更新失败',
+        description: '比赛结果更新失败，请稍后重试',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleDeleteResult = async (id: string) => {
+    const success = await deleteCompetitionResult(id);
+    
+    if (success) {
+      toast({
+        title: '删除成功',
+        description: '比赛结果已删除'
+      });
+      loadData();
+    } else {
+      toast({
+        title: '删除失败',
+        description: '比赛结果删除失败，请稍后重试',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handlePublishResult = async (id: string) => {
+    setUpdating(id);
+    const success = await publishCompetitionResult(id);
+    setUpdating(null);
+
+    if (success) {
+      toast({
+        title: '公布成功',
+        description: '比赛结果已公布'
+      });
+      loadData();
+    } else {
+      toast({
+        title: '公布失败',
+        description: '比赛结果公布失败，请稍后重试',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleUnpublishResult = async (id: string) => {
+    setUpdating(id);
+    const success = await unpublishCompetitionResult(id);
+    setUpdating(null);
+
+    if (success) {
+      toast({
+        title: '取消成功',
+        description: '比赛结果已取消公布'
+      });
+      loadData();
+    } else {
+      toast({
+        title: '取消失败',
+        description: '比赛结果取消公布失败，请稍后重试',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleCreateGroup = async (data: Omit<CompetitionGroup, 'id' | 'created_at'>) => {
+    const success = await createCompetitionGroup(data);
+    
+    if (success) {
+      toast({
+        title: '添加成功',
+        description: '比赛组别已添加'
+      });
+      loadData();
+    } else {
+      toast({
+        title: '添加失败',
+        description: '比赛组别添加失败，请稍后重试',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleUpdateGroup = async (id: string, data: Partial<CompetitionGroup>) => {
+    const success = await updateCompetitionGroup(id, data);
+    
+    if (success) {
+      toast({
+        title: '更新成功',
+        description: '比赛组别已更新'
+      });
+      loadData();
+    } else {
+      toast({
+        title: '更新失败',
+        description: '比赛组别更新失败，请稍后重试',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleDeleteGroup = async (id: string) => {
+    const success = await deleteCompetitionGroup(id);
+    
+    if (success) {
+      toast({
+        title: '删除成功',
+        description: '比赛组别已删除'
+      });
+      loadData();
+    } else {
+      toast({
+        title: '删除失败',
+        description: '比赛组别删除失败，请稍后重试',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  // 批量导入结果
+  const handleBatchImport = async (importData: any[]) => {
+    console.log('开始处理导入数据，接收到的数据:', importData);
+    
+    let successCount = 0;
+    let failedCount = 0;
+    const errors: string[] = [];
+
+    // 创建一个组别名称到ID的映射
+    const groupMap = groups.reduce((acc, group) => {
+      acc[group.name] = group.id;
+      return acc;
+    }, {} as Record<string, string>);
+    
+    console.log('当前系统中的组别映射:', groupMap);
+
+    // 创建一个项目名称到报名ID的映射
+    const registrationMap = registrations.reduce((acc, reg) => {
+      acc[reg.project_name] = reg.id;
+      return acc;
+    }, {} as Record<string, string>);
+    
+    console.log('当前系统中的报名映射:', registrationMap);
+
+    // 处理每条导入的数据
+    for (let i = 0; i < importData.length; i++) {
+      const item = importData[i];
+      console.log(`处理第${i + 1}条数据:`, item);
+      
+      try {
+        // 检查必要字段是否存在
+        if (!item.group_name && !item.project_name && !item.winner_name && !item.award_name) {
+          // 如果所有字段都为空，可能是空行，跳过
+          console.log(`第${i + 1}行为空行，跳过处理`);
+          continue;
+        }
+        
+        if (!item.group_name || !item.project_name || !item.winner_name || !item.award_name) {
+          const missingFields = [];
+          if (!item.group_name) missingFields.push('组别名称');
+          if (!item.project_name) missingFields.push('项目名称');
+          if (!item.winner_name) missingFields.push('获奖者姓名');
+          if (!item.award_name) missingFields.push('奖项名称');
+          
+          const errorMsg = `第${i + 2}行: 缺少${missingFields.join('、')}`;
+          console.error(errorMsg);
+          errors.push(errorMsg);
+          failedCount++;
+          continue;
+        }
+
+        // 查找组别ID
+        const groupId = groupMap[item.group_name];
+        console.log(`查找组别 "${item.group_name}" 的ID:`, groupId);
+        if (!groupId) {
+          const errorMsg = `第${i + 2}行: 未找到组别 "${item.group_name}"`;
+          console.error(errorMsg);
+          errors.push(errorMsg);
+          failedCount++;
+          continue;
+        }
+
+        // 查找报名ID
+        const registrationId = registrationMap[item.project_name];
+        console.log(`查找项目 "${item.project_name}" 的报名ID:`, registrationId);
+        if (!registrationId) {
+          const errorMsg = `第${i + 2}行: 未找到项目 "${item.project_name}"`;
+          console.error(errorMsg);
+          errors.push(errorMsg);
+          failedCount++;
+          continue;
+        }
+
+        // 创建比赛结果
+        console.log(`准备创建比赛结果，数据:`, {
+          registration_id: registrationId,
+          group_id: groupId,
+          award_level: item.award_level || 'honorable_mention',
+          award_name: item.award_name,
+          ranking: item.ranking ? Number(item.ranking) : null,
+          score: item.score ? Number(item.score) : null,
+          remarks: item.remarks || null
+        });
+        
+        const result = await createCompetitionResult({
+          registration_id: registrationId,
+          group_id: groupId,
+          award_level: item.award_level || 'honorable_mention',
+          award_name: item.award_name,
+          ranking: item.ranking ? Number(item.ranking) : null,
+          score: item.score ? Number(item.score) : null,
+          remarks: item.remarks || null
+        });
+        
+        console.log(`创建比赛结果结果:`, result);
+
+        if (result) {
+          successCount++;
+          console.log(`第${i + 2}行数据导入成功`);
+        } else {
+          const errorMsg = `第${i + 2}行: 创建比赛结果失败`;
+          console.error(errorMsg);
+          errors.push(errorMsg);
+          failedCount++;
+        }
+      } catch (error: any) {
+        const errorMsg = `第${i + 2}行: ${error.message || '未知错误'}`;
+        console.error(errorMsg, error);
+        errors.push(errorMsg);
+        failedCount++;
+      }
+    }
+
+    console.log(`数据处理完成，成功: ${successCount}, 失败: ${failedCount}`);
+    
+    // 重新加载数据
+    console.log('重新加载数据');
+    await loadData();
+
+    const finalResult = {
+      success: successCount,
+      failed: failedCount,
+      errors
+    };
+    
+    console.log('最终导入结果:', finalResult);
+    return finalResult;
   };
 
   const getStatusBadge = (status: string) => {
@@ -123,6 +514,14 @@ export default function AdminPage() {
             <TabsTrigger value="users" className="gap-2">
               <Users className="w-4 h-4" />
               用户管理
+            </TabsTrigger>
+            <TabsTrigger value="results" className="gap-2">
+              <Trophy className="w-4 h-4" />
+              比赛结果
+            </TabsTrigger>
+            <TabsTrigger value="attachments" className="gap-2">
+              <Upload className="w-4 h-4" />
+              附件管理
             </TabsTrigger>
           </TabsList>
 
@@ -333,8 +732,262 @@ export default function AdminPage() {
               </Card>
             )}
           </TabsContent>
+
+          <TabsContent value="results" className="space-y-4">
+            {loading ? (
+              <div className="space-y-4">
+                <Skeleton className="h-12 w-64" />
+                <div className="grid gap-4">
+                  {[1, 2, 3].map((i) => (
+                    <Card key={i}>
+                      <CardContent className="py-4">
+                        <Skeleton className="h-16 w-full bg-muted" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-semibold">比赛结果管理</h3>
+                    <p className="text-sm text-muted-foreground">
+                      管理各组别的比赛结果和获奖名单
+                    </p>
+                  </div>
+                  <Button onClick={() => setResultFormOpen(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    添加结果
+                  </Button>
+                </div>
+                
+                {/* 批量导入组件 */}
+                <BatchImportResults 
+                  groups={groups}
+                  registrations={registrations}
+                  onImport={handleBatchImport}
+                />
+                
+                <div className="grid gap-6">
+                  {groups.map((group) => {
+                    const groupResults = results.filter(r => r.group_id === group.id);
+                    
+                    return (
+                      <Card key={group.id} className="shadow-elegant">
+                        <CardHeader>
+                          <div className="flex justify-between items-center">
+                            <div>
+                              <CardTitle className="flex items-center gap-2">
+                                {group.name}
+                              </CardTitle>
+                              {group.description && (
+                                <CardDescription>{group.description}</CardDescription>
+                              )}
+                            </div>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => {
+                                setEditingGroup(group);
+                                setGroupFormOpen(true);
+                              }}
+                            >
+                              <Edit className="w-4 h-4 mr-2" />
+                              编辑组别
+                            </Button>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          {groupResults.length === 0 ? (
+                            <div className="text-center py-8 text-muted-foreground">
+                              该组别暂无比赛结果
+                            </div>
+                          ) : (
+                            <div className="space-y-4">
+                              {groupResults.map((result) => (
+                                <div 
+                                  key={result.id} 
+                                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-muted rounded-lg"
+                                >
+                                  <div className="flex-1">
+                                    <div className="font-medium">
+                                      {result.registration?.project_name}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground">
+                                      获奖者: {result.registration?.name}
+                                      {result.award_name && ` - ${result.award_name}`}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant={result.published ? "default" : "secondary"}>
+                                      {result.published ? "已公布" : "未公布"}
+                                    </Badge>
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline"
+                                      onClick={() => {
+                                        if (result.published) {
+                                          handleUnpublishResult(result.id);
+                                        } else {
+                                          handlePublishResult(result.id);
+                                        }
+                                      }}
+                                      disabled={updating === result.id}
+                                    >
+                                      {result.published ? (
+                                        <>
+                                          <EyeOff className="w-4 h-4 mr-1" />
+                                          取消公布
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Eye className="w-4 h-4 mr-1" />
+                                          公布
+                                        </>
+                                      )}
+                                    </Button>
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline"
+                                      onClick={() => {
+                                        setEditingResult(result);
+                                        setResultFormOpen(true);
+                                      }}
+                                    >
+                                      <Edit className="w-4 h-4" />
+                                    </Button>
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline" 
+                                      onClick={() => handleDeleteResult(result.id)}
+                                      disabled={updating === result.id}
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                  
+                  {groups.length === 0 && (
+                    <Card>
+                      <CardContent className="py-8 text-center">
+                        <p className="text-muted-foreground">暂无比赛组别</p>
+                        <Button 
+                          className="mt-4"
+                          onClick={() => setGroupFormOpen(true)}
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          添加组别
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              </div>
+            )}
+          </TabsContent>
+
+          {/* 附件管理标签页 */}
+          <TabsContent value="attachments" className="space-y-4">
+            <Card className="shadow-elegant">
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <CardTitle>附件管理</CardTitle>
+                    <CardDescription>上传和管理比赛相关附件文件</CardDescription>
+                  </div>
+                  <Button 
+                    onClick={() => fileInputRef.current?.click()} 
+                    disabled={uploading}
+                    className="gap-2"
+                  >
+                    <Upload className="w-4 h-4" />
+                    {uploading ? '上传中...' : '上传附件'}
+                  </Button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    onChange={handleFileUpload}
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.zip,.rar"
+                  />
+                </div>
+              </CardHeader>
+              <CardContent>
+                {attachments.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Upload className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                    <p>暂无附件</p>
+                    <p className="text-sm mt-2">点击上方按钮上传比赛章程等附件文件</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {attachments.map((attachment, index) => (
+                      <div 
+                        key={index} 
+                        className="flex items-center justify-between p-4 bg-muted rounded-lg"
+                      >
+                        <div className="flex items-center gap-3">
+                          <FileText className="w-5 h-5 text-muted-foreground" />
+                          <div>
+                            <div className="font-medium text-sm">{attachment.name}</div>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <a href={attachment.url} target="_blank" rel="noopener noreferrer">
+                            <Button size="sm" variant="outline" className="gap-2">
+                              <Download className="w-4 h-4" />
+                              下载
+                            </Button>
+                          </a>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => handleDeleteAttachment(index)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </div>
+      
+      {/* 比赛结果表单 */}
+      <ResultForm
+        open={resultFormOpen}
+        onOpenChange={setResultFormOpen}
+        onSubmit={editingResult ? 
+          (data) => handleUpdateResult(editingResult.id, data) : 
+          handleCreateResult
+        }
+        groups={groups}
+        registrations={registrations}
+        result={editingResult || undefined}
+      />
+      
+      {/* 比赛组别表单 */}
+      <GroupForm
+        open={groupFormOpen}
+        onOpenChange={setGroupFormOpen}
+        onSubmit={editingGroup ? 
+          (data) => handleUpdateGroup(editingGroup.id, data) : 
+          handleCreateGroup
+        }
+        group={editingGroup}
+      />
     </div>
   );
 }

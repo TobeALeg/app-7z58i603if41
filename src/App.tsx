@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/toaster';
 import Header from '@/components/common/Header';
 import Footer from '@/components/common/Footer';
 import routes from './routes';
+import HomePage from './pages/HomePage';
 
 export default function App() {
   return (
@@ -11,8 +12,12 @@ export default function App() {
       <AuthProvider>
         <div className="flex flex-col min-h-screen">
           <Header />
-          <main className="flex-grow">
+          <main className="flex-grow pt-16">
             <Routes>
+              <Route 
+                path="/" 
+                element={<HomePage />} 
+              />
               {routes.map((route, index) => (
                 <Route
                   key={index}

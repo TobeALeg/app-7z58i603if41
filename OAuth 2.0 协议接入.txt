@@ -1,0 +1,341 @@
+OAuth 2.0 协议接入
+CAS 认证 支持版本：1.5.0+
+
+适用场景
+本文档所描述的，仅涉及 Authorization Code Grant 以及 以下应用类型
+
+Web网站应用（Web app）
+
+移动应用（Native app）
+
+协议流程
+第三方应用须采用OAuth 2.0 Protocol 的 Authorization Code Grant 与CAS认证进行对接。
+
+
+
+(A) 用户通过浏览器访问应用，应用重定向到 OAuth server
+(B) 用户完成登录后，确认授权给应用
+(C) OAuth server 重定向到应用，同时，会携带 code
+(D) 应用获取到 code 后，可以换取 access token；通过 access token 可以调用相关接口获取账号详情。
+对接文档
+对接指南
+
+Grant Types
+OAuth 2.0 中，grant type 是指一个应用获取 access token 的方式
+
+OAuth 2.0 支持多种 grant type，包括：
+
+Authorization Code Grant
+Client Credentials Grant
+Password Grant
+Implicit Grant
+Client Types
+Client Types
+
+Client type	Confidentiality
+web application	confidential
+native application	public
+user-agent-based application	public
+你的应用如何选择 Grant Type？
+
+
+Access token owner	Client type	First party	Third party	Grant Type
+Machine	-	-	-	Client Credentials Grant
+User	Web app	-	-	Authorization Code Grant
+User	Native app	Y	-	Password Grant
+User	Native app	-	Y	Authorization Code Grant
+User	User-agent-based app	Y	-	Password Grant
+User	User-agent-based app	-	Y	Implicit Grant
+
+
+
+
+
+
+
+
+
+对接指南
+CAS 认证 支持版本：1.5.0+
+
+提供 第三方应用 进行对接，下面是具体对接指南：
+
+详细参见OAuth 2.0 Protocol 的 Authorization Code Grant
+
+准备
+提供 应用域名、回调地址，完成应用注册后，将 client_id、client_secret 给到应用对接方
+
+获取授权码（Authorization Code）
+1. 跳转到授权页面
+用户访问第三方应用，若未登录时，第三方应用需要将用户浏览器重定向到认证服务的OAuth2授权页面 /oauth2.0/authorize，同时可带上以下参数：
+
+参数说明：
+
+response_type
+
+响应类型：固定值 code
+
+client_id
+
+应用注册时，生成的唯一标识
+
+redirect_uri
+
+第三方应用的回调地址（须和应用注册时的回调地址保持匹配），便于 OAuth Server（CAS 认证） 在完成认证、用户授权后，重新跳转到第三方应用时，传回 授权码（authorization code）。
+
+state
+
+第三方应用生成的随机字符串，返回第三方应用时，会原样返回。
+
+该参数可以防止 CSRF 攻击。建议务必使用。
+
+请求示例：
+
+第三方应用通过浏览器发起以下请求：
+
+GET /cas/oauth2.0/authorize?response_type=code&client_id=902&redirect_uri=https://example.com/oauth2/authcode&state=YOUR_RANDOM_STATE HTTP/1.1
+Host: cas.example.com
+Copy to clipboardErrorCopied
+2. 用户登录
+用户在登录页面输入自己的用户名、密码进行登录。
+
+由 OAuth Server（CAS 认证）对用户进行认证，并由用户进行确认授权（可以是隐式的）。
+
+3. 响应
+若 OAuth Server（CAS 认证）认证成功，OAuth Server（CAS 认证）会将 授权码（authorization code） 通过第一步中的 redirect_uri，以 code 为参数名，传递给第三方应用。
+
+例如，SSO 服务使用以下响应，将浏览器重定向：
+
+HTTP/1.1 302 Found
+Location: https://example.com/oauth2/authcode?code=OC-2-lO-RjC5flQ3fqsw2LV0bAYEvy6rVfyXV&state=YOUR_RANDOM_STATE
+Copy to clipboardErrorCopied
+若 OAuth Server（CAS 认证）认证失败，OAuth Server（CAS 认证）重新回到登录页面，并显示错误信息。
+
+使用授权码换取 Access Token
+第三方应用获取到 授权码（Authorization Code） 后，须使用 授权码（Authorization Code） 换取 Access Token
+
+1. 获取授权码（Authorization Code）
+第三方应用，从浏览器请求中获取请求参数 code 的参数值
+
+同时，校验 state 是否与 跳转到授权页面 之前，存储在应用服务器端的 state 是一致的。可防止 CSRF 攻击。建议务必校验。
+
+2. 换取 Access Token
+第三方应用请求 /oauth2.0/accessToken ，以换取 Access Token，并获取 JSON格式的响应结果。
+
+具体参数如下：
+
+参数说明：
+
+grant_type
+
+响应类型：固定值 authorization_code
+
+client_id
+
+应用注册时，生成的唯一标识
+
+client_secret
+
+应用注册时，生成的密钥
+
+redirect_uri
+
+与认证登录时的 redirect_uri 保持一致
+
+code
+
+认证登录返回的 授权码（Authorization Code）
+
+请求示例：
+
+第三方应用须通过服务器端代码，请求换取 Access Token（请求可以为 GET 、POST）。这一步不发生在浏览器，而是第三方应用的服务端和OAuth Server（CAS 认证）直接通信。
+
+GET /cas/oauth2.0/accessToken?grant_type=authorization_code&client_id=902&client_secret=902&redirect_uri=https://example.com/oauth2/authcode&code=OC-2-lO-RjC5flQ3fqsw2LV0bAYEvy6rVfyXV HTTP/1.1
+Host: cas.example.com
+Copy to clipboardErrorCopied
+响应成功：
+
+HTTP/2 200
+content-type: application/json;charset=UTF-8
+
+{"access_token":"AT-1-4OAC0xUWy-QX0zfMr2ERQHUCxbTRSJZ-","token_type":"bearer","expires_in":28800,"refresh_token":"RT-1-MKzu3V2IbXeme1V-4dIilIu1s3jrP5bZ"}
+Copy to clipboardErrorCopied
+响应失败：
+
+HTTP/2 401
+Copy to clipboardErrorCopied
+表示 client_id 或 client_secret 错误
+
+HTTP/2 400
+content-type: text/plain;charset=UTF-8
+
+error=invalid_request
+Copy to clipboardErrorCopied
+表示 参数缺少、参数传值错误、code 无效 等
+
+3. 刷新 Access Token
+如果应用需要保持 Access Token 的更新，可以使用 Refresh Token 进行刷新
+
+第三方应用请求 /oauth2.0/accessToken ，以刷新 Access Token，并获取 JSON格式的响应结果。
+
+具体参数如下：
+
+参数说明：
+
+grant_type
+
+响应类型：固定值 refresh_token
+
+client_id
+
+应用注册时，生成的唯一标识
+
+client_secret
+
+应用注册时，生成的密钥
+
+refresh_token
+
+换取 Access Token 时，返回的 refresh_token
+
+请求示例：
+
+第三方应用须通过服务器端代码，请求刷新 Access Token（请求可以为 GET 、POST）。这一步不发生在浏览器，而是第三方应用的服务端和OAuth Server（CAS 认证）直接通信。
+
+GET /cas/oauth2.0/accessToken?grant_type=refresh_token&client_id=902&client_secret=902&refresh_token=RT-1-MKzu3V2IbXeme1V-4dIilIu1s3jrP5bZ HTTP/1.1
+Host: cas.example.com
+Copy to clipboardErrorCopied
+响应成功：
+
+HTTP/2 200
+content-type: application/json;charset=UTF-8
+
+{"access_token":"AT-2-oqBd0L8lHi9oUhtoGHASRbqaYu8UNgd-","token_type":"bearer","expires_in":28800}
+Copy to clipboardErrorCopied
+获取用户信息（user profile）
+第三方应用换取到 Access Token 后，可以通过 Access Token 调用 /oauth2.0/profile 接口，获取用户信息
+
+OAuth Server（CAS 认证） 会返回 JSON格式的响应结果。
+
+具体参数如下：
+
+参数说明：
+
+access_token
+
+换取 Access Token 时，返回的 access_token
+
+请求示例：
+
+第三方应用须通过服务器端代码，请求刷新 Access Token（请求可以为 GET 、POST）。这一步不发生在浏览器，而是第三方应用的服务端和OAuth Server（CAS 认证）直接通信。
+
+GET /cas/oauth2.0/profile?access_token=AT-1-4OAC0xUWy-QX0zfMr2ERQHUCxbTRSJZ- HTTP/1.1
+Host: cas.example.com
+Copy to clipboardErrorCopied
+响应成功：
+
+HTTP/2 200
+content-type: application/json;charset=UTF-8
+
+{
+  "id" : "smartadmin",
+  "attributes" : {
+    "name" : "智慧校园管理员",
+    "accountId" : "1",
+    "accountName" : "smartadmin",
+    "userId" : "1",
+    "userName" : "智慧校园管理员",
+    "identityTypeId" : "1",
+    "identityTypeCode" : "admin",
+    "identityTypeName" : "管理",
+    "organizationId" : "1",
+    "organizationCode" : "1",
+    "organizationName" : "智慧大学",
+    ……
+  },
+  "client_id" : "902",
+  "service" : "https://example.com/oauth2/authcode"
+}
+Copy to clipboardErrorCopied
+响应失败：
+
+HTTP/2 401
+content-type: application/json;charset=UTF-8
+
+{
+  "error" : [ "expired_accessToken" ]
+}
+Copy to clipboardErrorCopied
+表示 accessToken 无效、过期 等
+
+Attributes 属性定义
+
+基本属性
+attribute	说明	示例
+name	姓名	智慧校园管理员
+accountId	帐号ID	1
+userId	用户ID	1
+userName	用户姓名	智慧校园管理员
+identityTypeId	身份ID	1
+identityTypeCode	身份代码	admin
+identityTypeName	身份名称	管理
+organizationId	组织机构ID	1
+organizationCode	组织机构代码	1
+organizationName	组织机构名称	智慧大学
+ID-Token 属性
+只有 启用 ID Token，才会返回
+
+attribute	说明	示例
+idToken	Id-Token，便于前端项目接入	JWT 格式数据
+第三方应用访问
+第三方应用 完成票据验证，且验证成功后，可以获取到 CAS认证中的登录用户的用户名，即cas:user；
+
+第三方应用 信任该登录用户，然后根据用户名执行自己的业务逻辑（如：访问控制、权限判断等）。
+
+认证注销
+用户在第三方应用 中，结束业务操作后，若进行注销操作，则第三方应用 须在注销本地Session后，还须额外地跳转到 CAS认证的注销页面，告知 CAS认证处理注销。
+
+1. 注销本地Session、Cookie等
+第三方应用，注销本地Session。随后，通过浏览器重定向，跳转到 CAS认证的注销页面
+
+2. 跳转到认证注销页面
+通过浏览器重定向，跳转到 CAS认证的注销页面，并可携带以下参数：
+
+参数说明：
+
+service（可选）
+
+如果传递了该参数，则会在注销页面中显示该url信息。
+
+例如，CAS认证使用以下响应，将浏览器重定向：
+
+HTTP/1.1 302 Found
+Location: https://cas.example.com/cas/logout?service=https%3A%2F%2Fclient%2Eexample%2Ecom%2Foauth2%2Flogout
+Copy to clipboardErrorCopied
+单点注销
+当用户认证登录后，同时访问了若干个应用，此时，用户在某个应用中进行了注销操作，并希望同时将其他几个应用也进行注销，这种情况称为『单点注销』。
+
+单点注销，要求各个对接应用提供一个『单点注销接口』，认证系统在用户进行注销时，会统一请求这些注销接口，以便清除用户访问过的所有应用的登录信息。
+
+各个应用须按以下接口说明，完成接口的开发
+
+单点注销接口
+请求：
+
+GET /sso/slo
+Host: client.example.com
+
+callback=jsonpcallback
+Copy to clipboardErrorCopied
+响应：
+
+200 OK
+Content-Type: applicaton/javascript
+
+jsonpcallback({"code": 0, "message": null, "data": {"success": "注销成功"}});
+Copy to clipboardErrorCopied
+参数说明
+
+callback
+
+jsonp 回调函数名

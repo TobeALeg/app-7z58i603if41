@@ -9,8 +9,42 @@ const OAUTH_CONFIG = {
   userInfoUrl: Deno.env.get('OAUTH_USERINFO_URL') || 'https://cas.wzbc.edu.cn/cas/oauth2.0/profile',
   clientId: Deno.env.get('OAUTH_CLIENT_ID') || 'CijBwB5EwTTXouO7',
   clientSecret: Deno.env.get('OAUTH_CLIENT_SECRET') || 'O8dOsXE7p7yMbh18KEP2Z6',
-  redirectUri: Deno.env.get('OAUTH_REDIRECT_URI') || 'https://aigctmp.wzbc.edu.cn/auth/callback',
+  redirectUri: Deno.env.get('OAUTH_REDIRECT_URI') || 'https://aigc.wzbc.edu.cn/auth/callback',
 };
+
+// 从OAuth用户信息中提取所需字段
+// CAS系统返回的用户信息格式：
+// {
+//   "id": "smartadmin",
+//   "attributes": {
+//     "name": "智慧校园管理员",
+//     "accountId": "1",
+//     "accountName": "smartadmin",
+//     "userId": "1",
+//     "userName": "智慧校园管理员",
+//     "identityTypeId": "1",
+//     "identityTypeCode": "admin",
+//     "identityTypeName": "管理",
+//     "organizationId": "1",
+//     "organizationCode": "1",
+//     "organizationName": "智慧大学"
+//   }
+// }
+function extractUserInfo(oauthUserInfo: any) {
+  const attributes = oauthUserInfo.attributes || {};
+  
+  return {
+    oauth_id: oauthUserInfo.id,
+    student_id: attributes.accountName || attributes.accountId,
+    real_name: attributes.userName || attributes.name,
+    email: attributes.email || null,
+    username: attributes.accountName || oauthUserInfo.id,
+    provider: 'wzbc_cas',
+    // 额外保存的信息
+    identity_type: attributes.identityTypeName || null,
+    organization: attributes.organizationName || null
+  };
+}
 
 Deno.serve(async (req: Request) => {
   // 设置CORS头，允许前端调用
@@ -184,25 +218,30 @@ Deno.serve(async (req: Request) => {
     console.log('成功获取用户信息:', JSON.stringify(oauthUserInfo));
 
     // 3. 提取用户信息（CAS系统返回的格式）
-    const attributes = oauthUserInfo.attributes || {};
-    const userInfo = {
-      oauth_id: oauthUserInfo.id,
-      student_id: attributes.accountName || attributes.accountId,
-      real_name: attributes.userName || attributes.name,
-      email: attributes.email || null,
-      username: attributes.accountName || oauthUserInfo.id,
-      provider: 'wzbc_cas',
-      identity_type: attributes.identityTypeName || null,
-      organization: attributes.organizationName || null,
-    };
-
+    const userInfo = extractUserInfo(oauthUserInfo);
     console.log('提取的用户信息:', JSON.stringify(userInfo));
 
-    // 4. 返回用户信息给前端
+    // 4. 返回用户信息和一个可用于前端创建密码的token给前端
+    // 生成一个加密的用户信息token，供前端使用固定密码模式
+    const tokenPayload = {
+      oauth_id: userInfo.oauth_id,
+      provider: userInfo.provider,
+      student_id: userInfo.student_id,
+      real_name: userInfo.real_name,
+      username: userInfo.username,
+      identity_type: userInfo.identity_type,  // 添加 identity_type
+      organization: userInfo.organization,    // 添加 organization
+      expires: Date.now() + 300000 // 5分钟有效期
+    };
+    
+    // 简单的base64编码（实际项目中应该使用更安全的方法）
+    const token = btoa(encodeURIComponent(JSON.stringify(tokenPayload)));
+
     return new Response(
       JSON.stringify({ 
         success: true,
         userInfo: userInfo,
+        token: token, // 新增token字段
         state: state
       }),
       {

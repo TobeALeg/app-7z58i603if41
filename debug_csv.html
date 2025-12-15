@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV文件调试工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>CSV文件调试工具</h1>
+        
+        <div class="section">
+            <h2>1. 模板内容查看</h2>
+            <p>从系统下载的模板文件内容：</p>
+            <textarea id="templateContent" readonly></textarea>
+            <button onclick="analyzeTemplate()">分析模板</button>
+        </div>
+        
+        <div class="section">
+            <h2>2. 自定义CSV内容测试</h2>
+            <p>粘贴您的CSV内容进行测试：</p>
+            <textarea id="customContent" placeholder='例如:
+"组别名称","项目名称","获奖者姓名","奖项等级","奖项名称","排名","得分","备注"
+"AI应用组","智能图像识别系统","张三","first_prize","一等奖","1","95.5","创新性强"'></textarea>
+            <button onclick="analyzeCustom()">分析内容</button>
+        </div>
+        
+        <div class="section">
+            <h2>3. 分析结果</h2>
+            <div id="resultArea" class="result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        // 模拟从系统下载的模板内容
+        const templateCSV = `"组别名称","项目名称","获奖者姓名","奖项等级","奖项名称","排名","得分","备注"\r\n"AI应用组","智能图像识别系统","张三","first_prize","一等奖","1","95.5","创新性强"\r\n"算法创新组","新型排序算法","李四","second_prize","二等奖","2","88.0",""`;
+        
+        // 页面加载时填充模板内容
+        document.getElementById('templateContent').value = templateCSV;
+        
+        // CSV解析函数
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                
+                if (char === '"') {
+                    if (i + 1 < line.length && line[i + 1] === '"') {
+                        current += '"';
+                        i++;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current);
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            
+            result.push(current);
+            return result.map(field => field.replace(/^"(.*)"$/, '$1').trim());
+        }
+        
+        // 分析CSV内容
+        function analyzeCSV(content) {
+            try {
+                console.log('原始内容:', content);
+                
+                // 按行分割
+                const lines = content.split(/\r?\n/);
+                console.log('行数:', lines.length);
+                console.log('所有行:', lines);
+                
+                if (lines.length < 1) {
+                    throw new Error('文件内容为空');
+                }
+                
+                // 解析表头
+                let headerLine = lines[0].trim();
+                console.log('原始表头行:', headerLine);
+                
+                // 移除可能的BOM标记
+                if (headerLine.charCodeAt(0) === 0xFEFF) {
+                    headerLine = headerLine.slice(1);
+                    console.log('移除BOM后的表头:', headerLine);
+                }
+                
+                const headers = parseCSVLine(headerLine);
+                console.log('解析后的表头:', headers);
+                
+                if (headers.length === 0) {
+                    throw new Error('无法解析表头');
+                }
+                
+                // 解析数据行
+                const data = [];
+                for (let i = 1; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    console.log(`第${i}行原始内容:`, line);
+                    
+                    if (!line) {
+                        console.log(`第${i}行为空，跳过`);
+                        continue;
+                    }
+                    
+                    const values = parseCSVLine(line);
+                    console.log(`第${i}行解析后值:`, values);
+                    
+                    if (values.length === 0) {
+                        console.log(`第${i}行无有效值，跳过`);
+                        continue;
+                    }
+                    
+                    const row = {};
+                    for (let j = 0; j < headers.length; j++) {
+                        row[headers[j]] = j < values.length ? values[j] : '';
+                    }
+                    
+                    console.log(`第${i}行构造的对象:`, row);
+                    data.push(row);
+                }
+                
+                console.log('所有数据:', data);
+                
+                // 映射列名
+                const mappedData = data.map((row, index) => ({
+                    'group_name': row['组别名称'] || row['组别'] || row['GroupName'] || row['Group'] || '',
+                    'project_name': row['项目名称'] || row['项目'] || row['ProjectName'] || row['Project'] || '',
+                    'winner_name': row['获奖者姓名'] || row['获奖者'] || row['WinnerName'] || row['Winner'] || '',
+                    'award_level': row['奖项等级'] || row['AwardLevel'] || 'honorable_mention',
+                    'award_name': row['奖项名称'] || row['奖项'] || row['AwardName'] || row['Award'] || '',
+                    'ranking': row['排名'] || row['Ranking'] || null,
+                    'score': row['得分'] || row['Score'] || null,
+                    'remarks': row['备注'] || row['Remarks'] || null
+                }));
+                
+                console.log('映射后的数据:', mappedData);
+                
+                return {
+                    success: true,
+                    headers: headers,
+                    data: mappedData,
+                    rawData: data
+                };
+            } catch (error) {
+                console.error('解析错误:', error);
+                return {
+                    success: false,
+                    error: error.message
+                };
+            }
+        }
+        
+        // 显示结果
+        function showResult(result) {
+            const resultArea = document.getElementById('resultArea');
+            resultArea.style.display = 'block';
+            
+            if (result.success) {
+                resultArea.className = 'result success';
+                resultArea.textContent = `解析成功!
+
+表头字段: ${JSON.stringify(result.headers, null, 2)}
+
+映射后数据: ${JSON.stringify(result.data, null, 2)}
+
+原始数据: ${JSON.stringify(result.rawData, null, 2)}`;
+            } else {
+                resultArea.className = 'result error';
+                resultArea.textContent = `解析失败: ${result.error}`;
+            }
+        }
+        
+        // 分析模板
+        function analyzeTemplate() {
+            const content = document.getElementById('templateContent').value;
+            const result = analyzeCSV(content);
+            showResult(result);
+        }
+        
+        // 分析自定义内容
+        function analyzeCustom() {
+            const content = document.getElementById('customContent').value;
+            if (!content.trim()) {
+                alert('请输入CSV内容');
+                return;
+            }
+            
+            const result = analyzeCSV(content);
+            showResult(result);
+        }
+    </script>
+</body>
+</html>

@@ -1,24 +1,151 @@
 import { supabase } from './supabase';
-import type { Profile, Registration, Work, RegistrationWithWorks } from '@/types/types';
+import { createClient } from '@supabase/supabase-js';
+import { uploadLargeFile } from '@/lib/fileChunkUploader';
+import type { 
+  Profile, 
+  Registration, 
+  Work, 
+  RegistrationWithWorks, 
+  CompetitionGroup, 
+  CompetitionResult, 
+  CompetitionResultWithDetails 
+} from '@/types/types';
+
+// 初始化用于分片上传的 Supabase 客户端
+const uploadSupabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
 
 // ==================== Profile API ====================
 
 export async function getCurrentUser(): Promise<Profile | null> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  console.log('Supabase auth getUser 结果:', { user, authError });
+  if (authError && authError.name !== 'AuthSessionMissingError') {
+    console.error('获取认证用户失败:', authError);
+    return null;
+  }
+
+  // 即使有AuthSessionMissingError，也要尝试获取用户信息
+  if (!user) {
+    // 尝试刷新会话
+    console.log('尝试刷新会话');
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    console.log('会话信息:', { session: sessionData?.session, error: sessionError });
+    
+    if (sessionData?.session?.user) {
+      console.log('从会话中获取到用户信息');
+      // 如果能从会话中获取到用户，继续处理
+    } else {
+      console.log('未获取到用户信息');
+      return null;
+    }
+  }
 
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
-    .eq('id', user.id)
+    .eq('id', user?.id || sessionData?.session?.user?.id)
     .maybeSingle();
 
+  console.log('从profiles表获取用户数据:', { data, error });
+  
   if (error) {
     console.error('获取当前用户失败:', error);
     return null;
   }
 
+  // 如果没有找到profile数据，尝试创建一个
+  if (!data) {
+    console.log('未找到profile数据，尝试创建一个新的');
+    try {
+      const userData = (user?.user_metadata || sessionData?.session?.user?.user_metadata) || {};
+      const userId = user?.id || sessionData?.session?.user?.id;
+      const userEmail = user?.email || sessionData?.session?.user?.email;
+      
+      if (!userId) {
+        console.log('无法确定用户ID');
+        return null;
+      }
+      
+      const { data: insertData, error: insertError } = await supabase
+        .from('profiles')
+        .insert({
+          id: userId,
+          username: userData.username || userData.name || userEmail?.split('@')[0] || null,
+          role: 'user',
+          student_id: userData.student_id || null,
+          real_name: userData.real_name || userData.name || null,
+          oauth_provider: userData.provider || null,
+          oauth_id: userData.oauth_id || null,
+          identity_type: userData.identity_type || null,
+          organization: userData.organization || null
+        })
+        .select()
+        .maybeSingle();
+      
+      console.log('创建profile结果:', { data: insertData, error: insertError });
+      return insertData || null;
+    } catch (insertError) {
+      console.error('创建profile失败:', insertError);
+    }
+  }
+
   return data;
+}
+
+// 根据学工号搜索用户
+export async function searchUsersByStudentId(studentId: string): Promise<Profile[]> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, real_name, student_id, identity_type, username') // 减少查询字段以提高性能
+    .ilike('student_id', `%${studentId}%`)
+    .limit(10);
+
+  if (error) {
+    console.error('搜索用户失败:', error);
+    return [];
+  }
+
+  return Array.isArray(data) ? data : [];
+}
+
+// 根据姓名搜索用户
+export async function searchUsersByName(name: string): Promise<Profile[]> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, real_name, student_id, identity_type, username') // 减少查询字段以提高性能
+    .ilike('real_name', `%${name}%`)
+    .limit(10);
+
+  if (error) {
+    console.error('搜索用户失败:', error);
+    return [];
+  }
+
+  return Array.isArray(data) ? data : [];
+}
+
+// 根据项目名称搜索学生报名信息
+export async function searchStudentRegistrationsByProjectName(projectName: string): Promise<Registration[]> {
+  const { data, error } = await supabase
+    .from('registrations')
+    .select(`
+      id,
+      project_name,
+      name,
+      school
+    `) // 减少查询字段以提高性能
+    .ilike('project_name', `%${projectName}%`)
+    .limit(10);
+
+  if (error) {
+    console.error('搜索学生报名信息失败:', error);
+    return [];
+  }
+
+  return Array.isArray(data) ? data : [];
 }
 
 export async function getAllProfiles(): Promise<Profile[]> {
@@ -52,6 +179,24 @@ export async function updateUserRole(userId: string, role: 'user' | 'admin'): Pr
 // ==================== Registration API ====================
 
 export async function createRegistration(data: Omit<Registration, 'id' | 'created_at' | 'updated_at' | 'status'>): Promise<Registration | null> {
+  // 检查指导教师是否已经在其他报名中担任指导教师
+  if (data.instructor_name && data.track_type && ['student-team', 'teacher-team'].includes(data.track_type)) {
+    const { data: existingInstructorRegs, error: instructorCheckError } = await supabase
+      .from('registrations')
+      .select('id')
+      .in('status', ['pending', 'approved'])
+      .in('track_type', ['student-team', 'teacher-team'])
+      .eq('instructor_name', data.instructor_name);
+    
+    if (instructorCheckError) {
+      console.error('检查指导教师状态失败:', instructorCheckError);
+      // 即使检查失败也继续，让数据库约束来最终决定
+    } else if (existingInstructorRegs && existingInstructorRegs.length > 0) {
+      console.error('指导教师已在其他团队中担任指导教师');
+      throw new Error(`指导教师 ${data.instructor_name} 已经在其他团队中担任指导教师，无法重复指导`);
+    }
+  }
+  
   const { data: result, error } = await supabase
     .from('registrations')
     .insert({
@@ -62,8 +207,13 @@ export async function createRegistration(data: Omit<Registration, 'id' | 'create
       school: data.school,
       major: data.major || null,
       team_name: data.team_name || null,
-      project_name: data.project_name,
+      project_name: null,  // 移除项目名称字段，始终为null
+      application_direction: data.application_direction || null,  // 添加应用方向字段
       project_description: data.project_description || null,
+      track_type: data.track_type || null,
+      instructor_name: data.instructor_name || null,
+      team_members: data.team_members || null,
+      team_leader: data.team_leader || null,
       status: 'pending'
     })
     .select()
@@ -93,6 +243,129 @@ export async function getRegistrationsByUserId(userId: string): Promise<Registra
   }
 
   return Array.isArray(data) ? data : [];
+}
+
+// 新增函数：获取用户相关的所有报名信息（包括作为团队成员的）
+export async function getUserRelatedRegistrations(profile: Profile): Promise<RegistrationWithWorks[]> {
+  console.log('getUserRelatedRegistrations 被调用，参数:', profile);
+  
+  if (!profile?.id || !profile?.real_name) {
+    console.log('缺少必要信息，返回空数组');
+    return [];
+  }
+
+  try {
+    // 分别查询各种情况，避免OR查询可能出现的问题
+    // 1. 用户自己创建的报名
+    console.log('查询用户自己创建的报名...');
+    const { data: createdByUser, error: error1 } = await supabase
+      .from('registrations')
+      .select(`
+        *,
+        works (*)
+      `)
+      .eq('user_id', profile.id)
+      .order('created_at', { ascending: false });
+      
+    if (error1) {
+      console.error('查询用户创建的报名失败:', error1);
+    } else {
+      console.log('用户创建的报名:', createdByUser);
+    }
+
+    // 2. 用户作为团队成员的报名
+    console.log('查询作为团队成员的报名...');
+    // 使用更全面的查询来匹配成员，包括处理多种格式
+    const { data: asTeamMember, error: error2 } = await supabase
+      .from('registrations')
+      .select(`
+        *,
+        works (*)
+      `)
+      .or(`team_members.ilike.%${profile.real_name}%,team_members.ilike.%(${profile.real_name}%),team_members.ilike.%${profile.real_name})%,team_members.ilike.%${profile.real_name}(%`)
+      .order('created_at', { ascending: false });
+      
+    if (error2) {
+      console.error('查询作为团队成员的报名失败:', error2);
+    } else {
+      console.log('作为团队成员的报名:', asTeamMember);
+    }
+
+    // 3. 用户作为队长的报名
+    console.log('查询作为队长的报名...');
+    const { data: asTeamLeader, error: error3 } = await supabase
+      .from('registrations')
+      .select(`
+        *,
+        works (*)
+      `)
+      .eq('team_leader', profile.real_name)
+      .order('created_at', { ascending: false });
+      
+    if (error3) {
+      console.error('查询作为队长的报名失败:', error3);
+    } else {
+      console.log('作为队长的报名:', asTeamLeader);
+    }
+
+    // 4. 用户作为指导教师的报名
+    console.log('查询作为指导教师的报名...');
+    const { data: asInstructor, error: error4 } = await supabase
+      .from('registrations')
+      .select(`
+        *,
+        works (*)
+      `)
+      .eq('instructor_name', profile.real_name)
+      .order('created_at', { ascending: false });
+      
+    if (error4) {
+      console.error('查询作为指导教师的报名失败:', error4);
+    } else {
+      console.log('作为指导教师的报名:', asInstructor);
+    }
+
+    // 5. 用户作为个人报名的参与者（姓名匹配）
+    console.log('查询作为个人报名参与者的报名...');
+    const { data: asIndividualParticipant, error: error5 } = await supabase
+      .from('registrations')
+      .select(`
+        *,
+        works (*)
+      `)
+      .not('track_type', 'in', '("student-team","teacher-team")')
+      .eq('name', profile.real_name)
+      .order('created_at', { ascending: false });
+      
+    if (error5) {
+      console.error('查询作为个人报名参与者的报名失败:', error5);
+    } else {
+      console.log('作为个人报名参与者的报名:', asIndividualParticipant);
+    }
+
+    // 合并所有结果
+    const allData = [
+      ...(createdByUser || []),
+      ...(asTeamMember || []),
+      ...(asTeamLeader || []),
+      ...(asInstructor || []),
+      ...(asIndividualParticipant || [])
+    ];
+
+    console.log('合并前的所有数据:', allData);
+
+    // 去重，避免同一条记录出现多次
+    const uniqueRegistrations = Array.isArray(allData) ? 
+      allData.filter((registration, index, self) => 
+        index === self.findIndex(r => r.id === registration.id)
+      ) : [];
+
+    console.log('去重后的结果:', uniqueRegistrations);
+    return uniqueRegistrations;
+  } catch (err) {
+    console.error('获取用户相关报名列表时发生异常:', err);
+    return [];
+  }
 }
 
 export async function getAllRegistrations(): Promise<RegistrationWithWorks[]> {
@@ -214,27 +487,364 @@ export async function deleteWork(id: string): Promise<boolean> {
   return true;
 }
 
+// ==================== Competition Groups API ====================
+
+export async function getAllCompetitionGroups(): Promise<CompetitionGroup[]> {
+  const { data, error } = await supabase
+    .from('competition_groups')
+    .select('*')
+    .order('order_number', { ascending: true });
+
+  if (error) {
+    console.error('获取比赛组别列表失败:', error);
+    return [];
+  }
+
+  return Array.isArray(data) ? data : [];
+}
+
+export async function getCompetitionGroupById(id: string): Promise<CompetitionGroup | null> {
+  const { data, error } = await supabase
+    .from('competition_groups')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) {
+    console.error('获取比赛组别详情失败:', error);
+    return null;
+  }
+
+  return data;
+}
+
+export async function createCompetitionGroup(data: Omit<CompetitionGroup, 'id' | 'created_at'>): Promise<CompetitionGroup | null> {
+  const { data: result, error } = await supabase
+    .from('competition_groups')
+    .insert({
+      name: data.name,
+      description: data.description || null,
+      order_number: data.order_number || 0
+    })
+    .select()
+    .maybeSingle();
+
+  if (error) {
+    console.error('创建比赛组别失败:', error);
+    return null;
+  }
+
+  return result;
+}
+
+export async function updateCompetitionGroup(id: string, updates: Partial<CompetitionGroup>): Promise<boolean> {
+  const { error } = await supabase
+    .from('competition_groups')
+    .update(updates)
+    .eq('id', id);
+
+  if (error) {
+    console.error('更新比赛组别失败:', error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function deleteCompetitionGroup(id: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('competition_groups')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('删除比赛组别失败:', error);
+    return false;
+  }
+
+  return true;
+}
+
+// ==================== Competition Results API ====================
+
+export async function getPublishedCompetitionResults(): Promise<CompetitionResultWithDetails[]> {
+  const { data, error } = await supabase
+    .from('competition_results')
+    .select(`
+      *,
+      registration:registrations!inner(*, works (*)),
+      group:competition_groups!inner(*)
+    `)
+    .eq('published', true)
+    .order('group_id')
+    .order('award_level');
+
+  if (error) {
+    console.error('获取已公布的比赛结果失败:', error);
+    return [];
+  }
+
+  return Array.isArray(data) ? data : [];
+}
+
+export async function getCompetitionResultsByGroup(groupId: string): Promise<CompetitionResultWithDetails[]> {
+  const { data, error } = await supabase
+    .from('competition_results')
+    .select(`
+      *,
+      registration:registrations!inner(*, works (*)),
+      group:competition_groups!inner(*)
+    `)
+    .eq('group_id', groupId)
+    .order('award_level');
+
+  if (error) {
+    console.error('获取比赛组别结果失败:', error);
+    return [];
+  }
+
+  return Array.isArray(data) ? data : [];
+}
+
+export async function getAllCompetitionResults(): Promise<CompetitionResultWithDetails[]> {
+  const { data, error } = await supabase
+    .from('competition_results')
+    .select(`
+      *,
+      registration:registrations!inner(*, works (*)),
+      group:competition_groups!inner(*)
+    `)
+    .order('group_id')
+    .order('award_level');
+
+  if (error) {
+    console.error('获取所有比赛结果失败:', error);
+    return [];
+  }
+
+  return Array.isArray(data) ? data : [];
+}
+
+export async function createCompetitionResult(data: Omit<CompetitionResult, 'id' | 'created_at' | 'updated_at' | 'published' | 'published_at'>): Promise<CompetitionResult | null> {
+  console.log('开始创建比赛结果，传入数据:', data);
+  
+  const { data: result, error } = await supabase
+    .from('competition_results')
+    .insert({
+      registration_id: data.registration_id,
+      group_id: data.group_id,
+      award_level: data.award_level,
+      award_name: data.award_name,
+      ranking: data.ranking || null,
+      score: data.score || null,
+      remarks: data.remarks || null,
+      published: false
+    })
+    .select()
+    .maybeSingle();
+
+  if (error) {
+    console.error('创建比赛结果失败:', error);
+    return null;
+  }
+  
+  console.log('创建比赛结果成功:', result);
+  return result;
+}
+
+export async function updateCompetitionResult(id: string, updates: Partial<CompetitionResult>): Promise<boolean> {
+  const { error } = await supabase
+    .from('competition_results')
+    .update(updates)
+    .eq('id', id);
+
+  if (error) {
+    console.error('更新比赛结果失败:', error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function publishCompetitionResult(id: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('competition_results')
+    .update({ 
+      published: true,
+      published_at: new Date().toISOString()
+    })
+    .eq('id', id);
+
+  if (error) {
+    console.error('公布比赛结果失败:', error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function unpublishCompetitionResult(id: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('competition_results')
+    .update({ 
+      published: false,
+      published_at: null
+    })
+    .eq('id', id);
+
+  if (error) {
+    console.error('取消公布比赛结果失败:', error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function deleteCompetitionResult(id: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('competition_results')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error('删除比赛结果失败:', error);
+    return false;
+  }
+
+  return true;
+}
+
+// 获取特定报名的比赛结果
+export async function getCompetitionResultsByRegistrationId(registrationId: string): Promise<CompetitionResultWithDetails[]> {
+  const { data, error } = await supabase
+    .from('competition_results')
+    .select(`
+      *,
+      registration:registrations!inner(*),
+      group:competition_groups!inner(*)
+    `)
+    .eq('registration_id', registrationId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('获取报名的比赛结果失败:', error);
+    return [];
+  }
+
+  return Array.isArray(data) ? data : [];
+}
+
 // ==================== Storage API ====================
 
-export async function uploadWorkFile(file: File): Promise<string | null> {
+/**
+ * 上传作品文件（支持大文件分片上传）
+ * @param file 要上传的文件
+ * @param onProgress 进度回调函数
+ * @returns 文件的公共URL或null（如果失败）
+ */
+export async function uploadWorkFile(file: File, onProgress?: (progress: number) => void): Promise<string | null> {
   const fileExt = file.name.split('.').pop();
   const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
   const filePath = `works/${fileName}`;
 
-  const { error } = await supabase.storage
-    .from('app-7z58i603if41_works_images')
-    .upload(filePath, file);
+  // 添加调试日志
+  console.log('准备上传文件:', {
+    name: file.name,
+    size: file.size,
+    type: file.type,
+    fileName: fileName,
+    filePath: filePath
+  });
 
-  if (error) {
-    console.error('上传文件失败:', error);
+  try {
+    // 对大文件使用分片上传
+    if (file.size > 50 * 1024 * 1024) { // 大于50MB的文件使用分片上传
+      console.log('文件较大，使用分片上传方式');
+      
+      const { data, error } = await uploadLargeFile(
+        uploadSupabase,
+        file,
+        'app-7z58i603if41_works_images',
+        filePath,
+        {
+          chunkSize: 10 * 1024 * 1024, // 10MB 每个分片
+          onProgress: onProgress || ((progress) => {
+            console.log(`上传进度: ${progress.toFixed(2)}%`);
+          })
+        }
+      );
+
+      if (error) {
+        console.error('分片上传失败:', error);
+        return null;
+      }
+
+      console.log('分片上传成功:', data);
+      
+      const { data: urlData } = uploadSupabase.storage
+        .from('app-7z58i603if41_works_images')
+        .getPublicUrl(filePath);
+        
+      return urlData.publicUrl;
+    } else {
+      // 对于较小的文件，使用标准上传
+      console.log('文件较小，使用标准上传方式');
+      
+      // 确保为文件设置正确的MIME类型
+      let contentType = 'application/octet-stream';
+      if (file.type) {
+        contentType = file.type;
+      } else {
+        // 根据文件扩展名推断MIME类型
+        const ext = file.name.split('.').pop()?.toLowerCase();
+        switch (ext) {
+          case 'zip':
+            contentType = 'application/zip';
+            break;
+          case 'rar':
+            contentType = 'application/x-rar-compressed';
+            break;
+          case '7z':
+            contentType = 'application/x-7z-compressed';
+            break;
+          case 'tar':
+            contentType = 'application/x-tar';
+            break;
+          default:
+            contentType = 'application/octet-stream';
+        }
+      }
+      
+      const { error } = await supabase.storage
+        .from('app-7z58i603if41_works_images')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: contentType
+        });
+
+      if (error) {
+        console.error('上传文件失败:', error);
+        // 显示更详细的错误信息
+        console.error('错误详情:', {
+          name: error.name,
+          message: error.message,
+          statusCode: error.statusCode,
+          details: error.details
+        });
+        return null;
+      }
+
+      const { data } = supabase.storage
+        .from('app-7z58i603if41_works_images')
+        .getPublicUrl(filePath);
+
+      return data.publicUrl;
+    }
+  } catch (error) {
+    console.error('上传过程中发生异常:', error);
     return null;
   }
-
-  const { data } = supabase.storage
-    .from('app-7z58i603if41_works_images')
-    .getPublicUrl(filePath);
-
-  return data.publicUrl;
 }
 
 export async function deleteWorkFile(filePath: string): Promise<boolean> {
@@ -252,3 +862,5 @@ export async function deleteWorkFile(filePath: string): Promise<boolean> {
 
   return true;
 }
+
+export { uploadSupabase };

@@ -1,6 +1,6 @@
 // 图片压缩工具函数
 
-const MAX_FILE_SIZE = 1024 * 1024; // 1MB
+const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB
 const MAX_WIDTH = 1920;
 const MAX_HEIGHT = 1080;
 
@@ -19,8 +19,31 @@ export interface CompressionResult {
 export async function compressImage(file: File): Promise<CompressionResult> {
   const originalSize = file.size;
 
-  // 如果文件小于1MB，直接返回
-  if (originalSize <= MAX_FILE_SIZE) {
+  // 检查文件类型
+  const isImage = validateImageFile(file);
+  const isCompressed = validateCompressedFile(file);
+
+  // 如果不是图片也不是压缩文件，则报错
+  if (!isImage && !isCompressed) {
+    throw new Error('文件格式不支持，请上传图片或压缩包文件');
+  }
+
+  // 如果是压缩文件且小于200MB，直接返回
+  if (isCompressed) {
+    if (originalSize <= MAX_FILE_SIZE) {
+      return {
+        file,
+        compressed: false,
+        originalSize,
+        finalSize: originalSize
+      };
+    } else {
+      throw new Error('压缩包文件大小超出限制，最大支持200MB');
+    }
+  }
+
+  // 如果是图片且小于1MB，直接返回
+  if (originalSize <= 1024 * 1024) {
     return {
       file,
       compressed: false,
@@ -61,7 +84,7 @@ export async function compressImage(file: File): Promise<CompressionResult> {
     while (quality > 0.1) {
       const blob = await canvasToBlob(canvas, 'image/webp', quality);
       
-      if (blob.size <= MAX_FILE_SIZE) {
+      if (blob.size <= 1024 * 1024) { // 保持原来的1MB图片限制
         // 生成新文件名（保留原始文件名，但改为 .webp）
         const newFileName = file.name.replace(/\.[^.]+$/, '.webp');
         compressedFile = new File([blob], newFileName, { type: 'image/webp' });
@@ -72,7 +95,7 @@ export async function compressImage(file: File): Promise<CompressionResult> {
     }
     
     // 如果压缩后仍然超过1MB，进一步缩小尺寸
-    if (!compressedFile || compressedFile.size > MAX_FILE_SIZE) {
+    if (!compressedFile || compressedFile.size > 1024 * 1024) {
       width = Math.floor(width * 0.8);
       height = Math.floor(height * 0.8);
       canvas.width = width;
@@ -163,8 +186,10 @@ export function formatFileSize(bytes: number): string {
     return `${bytes} B`;
   } else if (bytes < 1024 * 1024) {
     return `${(bytes / 1024).toFixed(2)} KB`;
-  } else {
+  } else if (bytes < 1024 * 1024 * 1024) {
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  } else {
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
   }
 }
 
@@ -174,4 +199,32 @@ export function formatFileSize(bytes: number): string {
 export function validateImageFile(file: File): boolean {
   const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
   return allowedTypes.includes(file.type);
+}
+
+/**
+ * 验证压缩文件类型
+ */
+export function validateCompressedFile(file: File): boolean {
+  const allowedTypes = [
+    'application/zip', 
+    'application/x-zip-compressed',  // Windows系统常用ZIP MIME类型
+    'application/x-rar-compressed', 
+    'application/x-7z-compressed', 
+    'application/x-tar'
+  ];
+  
+  // 首先检查 MIME 类型
+  if (allowedTypes.includes(file.type)) {
+    return true;
+  }
+  
+  // 如果 MIME 类型检查失败，通过文件扩展名再检查一遍
+  // 某些浏览器或操作系统可能无法正确识别压缩文件的 MIME 类型
+  const fileName = file.name.toLowerCase();
+  if (fileName.endsWith('.zip') || fileName.endsWith('.rar') || 
+      fileName.endsWith('.7z') || fileName.endsWith('.tar')) {
+    return true;
+  }
+  
+  return false;
 }
