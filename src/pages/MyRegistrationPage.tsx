@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { getRegistrationsByUserId, getUserRelatedRegistrations, getCompetitionResultsByRegistrationId } from '@/db/api';
@@ -45,6 +45,15 @@ export default function MyRegistrationPage() {
   const [registrations, setRegistrations] = useState<RegistrationWithWorks[]>([]);
   const [results, setResults] = useState<Record<string, CompetitionResultWithDetails[]>>({});
   const [loading, setLoading] = useState(true);
+
+  // 缓存团队角色信息，避免重复计算
+  const teamRoles = useMemo(() => {
+    const roles: Record<string, string> = {};
+    registrations.forEach(registration => {
+      roles[registration.id] = getUserRoleInTeam(registration);
+    });
+    return roles;
+  }, [registrations, user?.id, profile?.real_name]);
 
   useEffect(() => {
     console.log('MyRegistrationPage useEffect 被调用', { user, profile });
@@ -161,9 +170,7 @@ export default function MyRegistrationPage() {
     console.log('getUserRoleInTeam 被调用', { registration, profile });
     if (!profile?.real_name) return '';
     
-    if (registration.user_id === user?.id) {
-      return '（报名人）';
-    } else if (registration.team_leader === profile.real_name) {
+    if (registration.team_leader === profile.real_name) {
       return '（队长）';
     } else if (registration.instructor_name === profile.real_name) {
       return '（指导教师）';
@@ -269,8 +276,8 @@ export default function MyRegistrationPage() {
                       <CardTitle className="text-xl mb-2">{registration.project_name || '未命名项目'}</CardTitle>
                       <CardDescription>
                         报名时间: {new Date(registration.created_at).toLocaleDateString('zh-CN')}
-                        {getUserRoleInTeam(registration) && (
-                          <span className="ml-2 text-primary">{getUserRoleInTeam(registration)}</span>
+                        {teamRoles[registration.id] && (
+                          <span className="ml-2 text-primary">{teamRoles[registration.id]}</span>
                         )}
                       </CardDescription>
                     </div>
@@ -282,9 +289,6 @@ export default function MyRegistrationPage() {
                     <div>
                       <span className="text-muted-foreground">姓名：</span>
                       <span className="font-medium">{registration.name}</span>
-                      {registration.user_id === user?.id && (
-                        <span className="ml-2 text-xs text-muted-foreground">（报名人）</span>
-                      )}
                     </div>
                     <div>
                       <span className="text-muted-foreground">联系电话：</span>
@@ -308,9 +312,11 @@ export default function MyRegistrationPage() {
                       <div>
                         <span className="text-muted-foreground">参赛赛道：</span>
                         <span className="font-medium">{getTrackTypeText(registration.track_type)}</span>
-                        <Badge variant="secondary" className="ml-2">
-                          {getUserRoleInTeam(registration).replace('（', '').replace('）', '')}
-                        </Badge>
+                        {(() => {
+                          const role = teamRoles[registration.id];
+                          const cleanRole = role?.replace('（', '').replace('）', '');
+                          return cleanRole ? <Badge variant="secondary" className="ml-2">{cleanRole}</Badge> : null;
+                        })()}
                       </div>
                     )}
                     {registration.team_name && (
@@ -443,10 +449,9 @@ export default function MyRegistrationPage() {
                     </div>
                   )}
 
-                  {/* 只有队长、报名人或者指导教师才能提交作品 */}
+                  {/* 只有队长或者指导教师才能提交作品 */}
                   {registration.status === 'approved' && 
-                   (registration.user_id === user?.id || 
-                    registration.team_leader === profile?.real_name || 
+                   (registration.team_leader === profile?.real_name || 
                     registration.instructor_name === profile?.real_name) && (
                     <div className="pt-4 border-t border-border">
                       <Link to="/submit-work">
